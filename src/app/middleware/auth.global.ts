@@ -6,6 +6,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
+  const dashboardEnabled = process.env.ENABLE_USER_DASHBOARD !== 'false';
+
+  // Hide dashboard routes when feature flag is off
+  if (!dashboardEnabled && to.path.startsWith('/dashboard')) {
+    return abortNavigation();
+  }
+
   const event = useRequestEvent();
 
   const authStore = useAuthStore();
@@ -33,6 +40,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
     authStore.userData = await authStore.getSession();
   }
 
+  // Dashboard login: redirect to dashboard if already logged in
+  if (to.path === '/dashboard/login') {
+    if (authStore.userData?.username) {
+      return navigateTo('/dashboard', { redirectCode: 302 });
+    }
+    return;
+  }
+
+  // Require auth for dashboard pages
+  if (to.path.startsWith('/dashboard')) {
+    if (!authStore.userData?.username) {
+      return navigateTo('/dashboard/login', { redirectCode: 302 });
+    }
+    return;
+  }
+
   // skip login if already logged in
   if (to.path === '/login') {
     if (authStore.userData?.username) {
@@ -49,7 +72,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Check for admin access (any non-client role)
   if (to.path.startsWith('/admin')) {
     if (authStore.userData?.role === roles.CLIENT) {
-      return abortNavigation('Not allowed to access Admin Panel');
+      return navigateTo('/dashboard?toast=no-permission', { redirectCode: 302 });
     }
   }
 });
