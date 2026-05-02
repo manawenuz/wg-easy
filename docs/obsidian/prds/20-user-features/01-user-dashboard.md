@@ -1,7 +1,7 @@
 ---
 id: PRD-20-01
 title: User dashboard — usage graph, status, expiry
-status: approved
+status: shipped
 phase: P1
 depends_on:
   - "[[prds/00-foundation/03-auth-refactor]]"
@@ -18,6 +18,9 @@ touches:
   - src/server/api/dashboard/clients/[id]/usage.get.ts (new)
   - src/server/api/dashboard/clients/[id]/configuration.get.ts (new)
   - src/server/api/dashboard/clients/[id]/qrcode.svg.get.ts (new)
+  - src/server/api/dashboard/me.get.test.ts (new)
+  - src/server/api/dashboard/clients/index.get.test.ts (new)
+  - src/server/api/dashboard/clients/[id]/usage.get.test.ts (new)
 ---
 
 # PRD-20-01 — User dashboard
@@ -144,3 +147,14 @@ pnpm test src/server/api/dashboard
 pnpm dev
 # manual: see test plan
 ```
+
+## Resolution log (2026-05-02)
+
+- All dashboard routes, APIs, and tests implemented per spec.
+- All APIs enforce `principal.kind === 'user'` explicitly (the existing `requirePermission('dashboard:self')` also allows admin principals; added guard to match PRD intent).
+- Usage bucketing: 24h → 5min, 7d → hourly, 30d → daily, computed in-memory from `usage_sample` rows.
+- Charting uses existing ApexCharts (vue3-apexcharts) — no new dependency.
+- `ENABLE_USER_DASHBOARD=false` hides dashboard UI routes via middleware; APIs remain callable (feature-flag is UI-only).
+- Tests: 8 new assertions across 3 test files; all 78 unit tests pass.
+- i18n keys for dashboard UI are referenced but not yet translated — deferred to translation sweep.
+- Dashboard login is a placeholder (public-key paste → `/api/user-session`); full QR/key challenge flow ships in PRD-20-02.
