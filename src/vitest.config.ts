@@ -13,6 +13,7 @@ export default defineConfig({
           include: [
             'test/unit/*.{test,spec}.ts',
             'server/engines/**/*.test.ts',
+            'server/transports/**/*.test.ts',
             'server/database/migrations/**/*.test.ts',
             'server/utils/*.test.ts',
             'server/api/**/*.test.ts',

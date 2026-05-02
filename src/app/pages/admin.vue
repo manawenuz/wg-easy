@@ -70,6 +70,7 @@ const menuItems = computed(() => {
     principal?.user.role === roles.ADMIN || isSuperAdmin;
 
   if (isAdmin) {
+    items.push({ id: 'routers', name: t('pages.admin.routers') });
     items.push({ id: 'users', name: t('pages.admin.users') });
   }
   if (isSuperAdmin) {

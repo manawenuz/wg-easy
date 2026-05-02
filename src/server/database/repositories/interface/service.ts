@@ -37,14 +37,24 @@ export class InterfaceService {
     this.#statements = createPreparedStatement(db);
   }
 
-  async get() {
+  async get(name = 'wg0') {
     const wgInterface = await this.#statements.get.execute({
-      interface: 'wg0',
+      interface: name,
     });
     if (!wgInterface) {
       throw new Error('Interface not found');
     }
     return wgInterface;
+  }
+
+  async getAll() {
+    return this.#db.query.wgInterface.findMany();
+  }
+
+  async getByRouterId(routerId: ID) {
+    return this.#db.query.wgInterface.findMany({
+      where: eq(wgInterface.routerId, routerId),
+    });
   }
 
   updateKeyPair(privateKey: string, publicKey: string) {

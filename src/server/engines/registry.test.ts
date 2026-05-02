@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getEngine } from './registry';
 import { WireguardEngine } from './wireguard';
+import { MikrotikEngine } from './mikrotik';
 
 describe('engine registry', () => {
   it('returns a WireguardEngine for wireguard', () => {
@@ -9,9 +10,15 @@ describe('engine registry', () => {
     expect(engine.id).toBe('wireguard');
   });
 
-  it('throws for unregistered engines such as mikrotik', () => {
-    expect(() => getEngine('mikrotik')).toThrow(
-      "Engine 'mikrotik' is not registered"
+  it('returns a MikrotikEngine for mikrotik', () => {
+    const engine = getEngine('mikrotik');
+    expect(engine).toBeInstanceOf(MikrotikEngine);
+    expect(engine.id).toBe('mikrotik');
+  });
+
+  it('throws for unregistered engines such as boringtun', () => {
+    expect(() => getEngine('boringtun')).toThrow(
+      "Engine 'boringtun' is not registered"
     );
   });
 });

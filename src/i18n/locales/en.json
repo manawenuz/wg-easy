@@ -9,6 +9,7 @@
       "interface": "Interface",
       "hooks": "Hooks",
       "users": "Users",
+      "routers": "Routers",
       "auditLog": "Audit Log"
     }
   },
@@ -210,6 +211,28 @@
       "deleteConfirm": "Are you sure you want to delete this user?",
       "createTitle": "Create User",
       "password": "Password"
+    },
+    "routers": {
+      "title": "Routers",
+      "add": "Add Router",
+      "edit": "Edit",
+      "detail": "Router Details",
+      "id": "ID",
+      "engineType": "Engine Type",
+      "transport": "Transport",
+      "status": "Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "apiUser": "API User",
+      "apiPassword": "API Password",
+      "credentials": "Credentials",
+      "interfaces": "Interfaces",
+      "testConnection": "Test Connection",
+      "testSuccess": "Connection successful",
+      "testFailed": "Connection failed",
+      "delete": "Delete",
+      "deleteConfirm": "Are you sure you want to delete this router?",
+      "createTitle": "Create Router"
     },
     "auditLog": {
       "title": "Audit Log",
