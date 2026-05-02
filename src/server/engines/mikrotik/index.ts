@@ -13,6 +13,7 @@ import type {
 import { configgen } from './configgen';
 import { speedlimit } from './speedlimit';
 import { usage } from './usage';
+import { bootstrap as runBootstrap, type BootstrapOptions, type ProgressEvent } from './bootstrap';
 import type { InterfaceType } from '#db/repositories/interface/types';
 import type { RouterType } from '#db/repositories/router/types';
 
@@ -281,5 +282,13 @@ export class MikrotikEngine implements VpnEngine {
       return undefined;
     }
     return result as unknown as Client;
+  }
+
+  async bootstrap(
+    router: RouterType,
+    opts: BootstrapOptions,
+    emit: (e: ProgressEvent) => void
+  ): Promise<void> {
+    return runBootstrap(router, opts, emit);
   }
 }

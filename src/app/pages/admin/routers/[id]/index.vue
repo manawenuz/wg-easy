@@ -54,6 +54,11 @@
           @click="testConnection"
         />
         <FormSecondaryActionField
+          v-if="routerData?.transport === 'ssh'"
+          :label="t('admin.bootstrap.title')"
+          @click="goToBootstrap"
+        />
+        <FormSecondaryActionField
           :label="t('admin.routers.delete')"
           class="text-red-600"
           @click="deleteRouter"
@@ -210,6 +215,10 @@ async function testConnection() {
           : 'Unknown error';
     alert(`${t('admin.routers.testFailed')}: ${message}`);
   }
+}
+
+function goToBootstrap() {
+  routerNav.push(`/admin/routers/${id}/bootstrap`);
 }
 
 async function deleteRouter() {
