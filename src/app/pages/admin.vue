@@ -54,12 +54,30 @@ const { t } = useI18n();
 
 const route = useRoute();
 
-const menuItems = computed(() => [
-  { id: 'general', name: t('pages.admin.general') },
-  { id: 'config', name: t('pages.admin.config') },
-  { id: 'interface', name: t('pages.admin.interface') },
-  { id: 'hooks', name: t('pages.admin.hooks') },
-]);
+const authStore = useAuthStore();
+
+const menuItems = computed(() => {
+  const items = [
+    { id: 'general', name: t('pages.admin.general') },
+    { id: 'config', name: t('pages.admin.config') },
+    { id: 'interface', name: t('pages.admin.interface') },
+    { id: 'hooks', name: t('pages.admin.hooks') },
+  ];
+
+  const principal = authStore.principal;
+  const isSuperAdmin = principal?.user.role === roles.SUPERADMIN;
+  const isAdmin =
+    principal?.user.role === roles.ADMIN || isSuperAdmin;
+
+  if (isAdmin) {
+    items.push({ id: 'users', name: t('pages.admin.users') });
+  }
+  if (isSuperAdmin) {
+    items.push({ id: 'audit-log', name: t('pages.admin.auditLog') });
+  }
+
+  return items;
+});
 
 const defaultItem = { id: '', name: t('pages.admin.panel') };
 

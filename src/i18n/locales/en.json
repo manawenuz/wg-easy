@@ -7,7 +7,9 @@
       "general": "General",
       "config": "Config",
       "interface": "Interface",
-      "hooks": "Hooks"
+      "hooks": "Hooks",
+      "users": "Users",
+      "auditLog": "Audit Log"
     }
   },
   "user": {
@@ -185,7 +187,40 @@
       "firewallEnabled": "Enable Per-Client Firewall",
       "firewallEnabledDesc": "Restrict client traffic to specific destination IPs using iptables. When enabled, each client can be configured with allowed destinations."
     },
-    "introText": "Welcome to the admin panel.\n\nHere you can manage the general settings, the configuration, the interface settings and the hooks.\n\nStart by choosing one of the sections in the sidebar."
+    "introText": "Welcome to the admin panel.\n\nHere you can manage the general settings, the configuration, the interface settings and the hooks.\n\nStart by choosing one of the sections in the sidebar.",
+    "users": {
+      "title": "Users",
+      "invite": "Invite User",
+      "username": "Username",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "edit": "Edit",
+      "detail": "User Details",
+      "email": "Email",
+      "newPassword": "New Password",
+      "acl": "Router Access",
+      "noAccess": "No Access",
+      "read": "Read",
+      "write": "Write",
+      "admin": "Admin",
+      "delete": "Delete",
+      "deleteConfirm": "Are you sure you want to delete this user?",
+      "createTitle": "Create User",
+      "password": "Password"
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "ts": "Timestamp",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target",
+      "result": "Result",
+      "prev": "Previous",
+      "next": "Next"
+    }
   },
   "zod": {
     "generic": {

@@ -1,3 +1,5 @@
+import { getEngine } from '../engines/registry';
+
 export default defineNitroPlugin((nitroApp) => {
   console.log(`====================================================`);
   console.log(`    wg-easy - https://github.com/wg-easy/wg-easy    `);
@@ -9,6 +11,8 @@ export default defineNitroPlugin((nitroApp) => {
   console.log(`====================================================`);
   nitroApp.hooks.hook('close', async () => {
     console.log('Shutting down');
-    await WireGuard.Shutdown();
+    const engine = getEngine('wireguard');
+    const iface = await Database.interfaces.get();
+    await engine.bringDown(iface);
   });
 });

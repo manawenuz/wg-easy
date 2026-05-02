@@ -6,6 +6,7 @@ export type WGSession = Partial<{
 }>;
 
 const name = 'wg-easy';
+const userSessionName = 'wg-user-session';
 
 export async function useWGSession(event: H3Event, rememberMe = false) {
   const sessionConfig = await Database.general.getSessionConfig();
@@ -32,10 +33,38 @@ export async function getWGSession(event: H3Event) {
   });
 }
 
+export async function useWGUserSession(event: H3Event) {
+  const sessionConfig = await Database.general.getSessionConfig();
+  return useSession<WGSession>(event, {
+    password: sessionConfig.sessionPassword,
+    name: userSessionName,
+    cookie: {
+      secure: !WG_ENV.INSECURE,
+    },
+  });
+}
+
+export async function getWGUserSession(event: H3Event) {
+  const sessionConfig = await Database.general.getSessionConfig();
+  return getSession<WGSession>(event, {
+    password: sessionConfig.sessionPassword,
+    name: userSessionName,
+    cookie: {
+      secure: !WG_ENV.INSECURE,
+    },
+  });
+}
+
 /**
  * @throws
  */
 export async function getCurrentUser(event: H3Event) {
+  // If principal was already resolved by middleware, use it directly
+  const principal = event.context.principal;
+  if (principal) {
+    return principal.user;
+  }
+
   const session = await getWGSession(event);
 
   const authorization = getHeader(event, 'Authorization');
@@ -47,50 +76,73 @@ export async function getCurrentUser(event: H3Event) {
   } else if (authorization) {
     // Handle if authenticating using Header
     const [method, value] = authorization.split(' ');
-    // Support Basic Authentication
-    // TODO: support personal access token or similar
-    if (method !== 'Basic' || !value) {
+
+    if (method === 'Bearer' && value) {
+      // Bearer token → lookup api_token by hash
+      const tokens = await Database.apiTokens.getAll();
+      const now = Date.now();
+
+      for (const tokenRecord of tokens) {
+        if (tokenRecord.expiresAt && tokenRecord.expiresAt.getTime() < now) {
+          continue;
+        }
+
+        const valid = await isPasswordValid(value, tokenRecord.tokenHash);
+        if (valid) {
+          user = await Database.users.get(tokenRecord.userId);
+          if (user) {
+            await Database.apiTokens.updateLastUsed(tokenRecord.id);
+          }
+          break;
+        }
+      }
+
+      if (!user) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Invalid Bearer token',
+        });
+      }
+    } else if (method === 'Basic' && value) {
+      const basicValue = Buffer.from(value, 'base64').toString('utf-8');
+
+      // Split by first ":"
+      const index = basicValue.indexOf(':');
+      const username = basicValue.substring(0, index);
+      const password = basicValue.substring(index + 1);
+
+      if (!username || !password) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Invalid Basic Authorization',
+        });
+      }
+
+      const foundUser = await Database.users.getByUsername(username);
+
+      if (!foundUser) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Session failed',
+        });
+      }
+
+      const userHashPassword = foundUser.password;
+      const passwordValid = await isPasswordValid(password, userHashPassword);
+
+      if (!passwordValid) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Session failed',
+        });
+      }
+      user = foundUser;
+    } else {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Invalid Basic Authorization',
+        statusMessage: 'Invalid Authorization',
       });
     }
-
-    const basicValue = Buffer.from(value, 'base64').toString('utf-8');
-
-    // Split by first ":"
-    const index = basicValue.indexOf(':');
-    const username = basicValue.substring(0, index);
-    const password = basicValue.substring(index + 1);
-
-    if (!username || !password) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid Basic Authorization',
-      });
-    }
-
-    // TODO: timing can be used to enumerate usernames
-
-    const foundUser = await Database.users.getByUsername(username);
-
-    if (!foundUser) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Session failed',
-      });
-    }
-
-    const userHashPassword = foundUser.password;
-    const passwordValid = await isPasswordValid(password, userHashPassword);
-
-    if (!passwordValid) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Session failed',
-      });
-    }
-    user = foundUser;
   } else {
     throw createError({
       statusCode: 401,

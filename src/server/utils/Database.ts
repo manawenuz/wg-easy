@@ -3,6 +3,16 @@
  * This design allows for easy swapping of different database implementations.
  */
 import { connect, type DBServiceType } from '#db/sqlite';
+import { getEngine } from '../engines/registry';
+
+if (OLD_ENV.PASSWORD || OLD_ENV.PASSWORD_HASH) {
+  throw new Error(
+    `
+You are using an invalid Configuration for wg-easy
+Please follow the instructions on https://wg-easy.github.io/wg-easy/latest/advanced/migrate/from-14-to-15/ to migrate
+`
+  );
+}
 
 const nullObject = new Proxy(
   {},
@@ -16,9 +26,11 @@ const nullObject = new Proxy(
 // eslint-disable-next-line import/no-mutable-exports
 let provider = nullObject as never as DBServiceType;
 
-connect().then((db) => {
+connect().then(async (db) => {
   provider = db;
-  WireGuard.Startup();
+  const engine = getEngine('wireguard');
+  const iface = await db.interfaces.get();
+  await engine.bringUp(iface);
 });
 
 export default provider;

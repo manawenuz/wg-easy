@@ -12,7 +12,13 @@ export type InterfaceCreateType = Omit<
 
 export type InterfaceUpdateType = Omit<
   InterfaceCreateType,
-  'name' | 'createdAt' | 'updatedAt' | 'privateKey' | 'publicKey'
+  | 'name'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'privateKey'
+  | 'publicKey'
+  | 'engineType'
+  | 'routerId'
 >;
 
 const device = z

@@ -1,4 +1,5 @@
 import { ClientGetSchema } from '#db/repositories/client/types';
+import { getEngine } from '../../../engines/registry';
 
 export default definePermissionEventHandler(
   'clients',
@@ -13,7 +14,12 @@ export default definePermissionEventHandler(
     checkPermissions(client);
 
     await Database.clients.delete(clientId);
-    await WireGuard.saveConfig();
+
+    const iface = await Database.interfaces.get();
+    const engine = getEngine('wireguard');
+    const clients = await Database.clients.getAll();
+    await engine.syncInterface(iface, clients);
+
     return { success: true };
   }
 );

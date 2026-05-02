@@ -1,4 +1,5 @@
 import { OneTimeLinkGetSchema } from '#db/repositories/oneTimeLink/types';
+import { configgen } from '../../engines/wireguard/configgen';
 
 export default defineEventHandler(async (event) => {
   const { oneTimeLink } = await getValidatedRouterParams(
@@ -22,15 +23,24 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const config = await WireGuard.getClientConfiguration({
-    clientId: client.id,
-  });
+  const wgInterface = await Database.interfaces.get();
+  const userConfig = await Database.userConfigs.get();
+
+  const config = configgen.generateClientConfig(
+    wgInterface,
+    userConfig,
+    client,
+    {
+      enableIpv6: !WG_ENV.DISABLE_IPV6,
+    }
+  );
+
   await Database.oneTimeLinks.erase(otl.id);
 
   setHeader(
     event,
     'Content-Disposition',
-    `attachment; filename="${WireGuard.cleanClientFilename(client.name) || client.id}.conf"`
+    `attachment; filename="${configgen.cleanClientFilename(client.name) || client.id}.conf"`
   );
   setHeader(event, 'Content-Type', 'application/octet-stream');
   return config;

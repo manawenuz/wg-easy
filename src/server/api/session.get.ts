@@ -1,23 +1,16 @@
 import type { SharedPublicUser } from '~~/shared/utils/permissions';
 
 export default defineEventHandler(async (event) => {
-  const session = await useWGSession(event);
+  const principal = await resolvePrincipal(event);
 
-  if (!session.data.userId) {
-    // not logged in
+  if (!principal) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Not authenticated',
     });
   }
 
-  const user = await Database.users.get(session.data.userId);
-  if (!user) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Not found in Database',
-    });
-  }
+  const user = principal.user;
 
   return {
     id: user.id,

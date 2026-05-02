@@ -1,4 +1,5 @@
 import { ClientGetSchema } from '#db/repositories/client/types';
+import { configgen } from '../../../engines/wireguard/configgen';
 
 export default definePermissionEventHandler(
   'clients',
@@ -18,12 +19,22 @@ export default definePermissionEventHandler(
       });
     }
 
-    const config = await WireGuard.getClientConfiguration({ clientId });
+    const wgInterface = await Database.interfaces.get();
+    const userConfig = await Database.userConfigs.get();
+
+    const config = configgen.generateClientConfig(
+      wgInterface,
+      userConfig,
+      client,
+      {
+        enableIpv6: !WG_ENV.DISABLE_IPV6,
+      }
+    );
 
     setHeader(
       event,
       'Content-Disposition',
-      `attachment; filename="${WireGuard.cleanClientFilename(client.name) || clientId}.conf"`
+      `attachment; filename="${configgen.cleanClientFilename(client.name) || clientId}.conf"`
     );
 
     setHeader(event, 'Content-Type', 'application/octet-stream');

@@ -1,5 +1,10 @@
+import { getEngine } from '../../../engines/registry';
+
 export default definePermissionEventHandler('admin', 'any', async () => {
-  await WireGuard.Restart();
+  const iface = await Database.interfaces.get();
+  const engine = getEngine('wireguard');
+  await engine.bringDown(iface);
+  await engine.bringUp(iface);
 
   return { success: true };
 });

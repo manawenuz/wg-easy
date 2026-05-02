@@ -10,6 +10,9 @@ export type Role = number & BrandedRole;
 export const roles = {
   ADMIN: 1 as Role,
   CLIENT: 2 as Role,
+  SUPERADMIN: 3 as Role,
+  OPERATOR: 4 as Role,
+  VIEWER: 5 as Role,
 } as const;
 
 type Roles = keyof typeof roles;
@@ -78,6 +81,21 @@ export type Permissions = {
 };
 
 export const ROLES = {
+  SUPERADMIN: {
+    clients: {
+      view: true,
+      create: true,
+      update: true,
+      delete: true,
+      custom: true,
+    },
+    admin: {
+      any: true,
+    },
+    me: {
+      update: (loggedIn, toChange) => loggedIn.id === toChange.id,
+    },
+  },
   ADMIN: {
     clients: {
       view: true,
@@ -88,6 +106,36 @@ export const ROLES = {
     },
     admin: {
       any: true,
+    },
+    me: {
+      update: (loggedIn, toChange) => loggedIn.id === toChange.id,
+    },
+  },
+  OPERATOR: {
+    clients: {
+      view: true,
+      create: true,
+      update: true,
+      delete: true,
+      custom: true,
+    },
+    admin: {
+      any: false,
+    },
+    me: {
+      update: (loggedIn, toChange) => loggedIn.id === toChange.id,
+    },
+  },
+  VIEWER: {
+    clients: {
+      view: true,
+      create: false,
+      update: false,
+      delete: false,
+      custom: true,
+    },
+    admin: {
+      any: false,
     },
     me: {
       update: (loggedIn, toChange) => loggedIn.id === toChange.id,

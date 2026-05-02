@@ -3,6 +3,7 @@ import { TOTP } from 'otpauth';
 import { user } from './schema';
 import type { UserType } from './types';
 import type { DBType } from '#db/sqlite';
+import type { Role } from '#shared/utils/permissions';
 
 type LoginResult =
   | {
@@ -246,6 +247,76 @@ export class UserService {
         .set({ totpKey: null, totpVerified: false })
         .where(eq(user.id, id))
         .execute();
+    });
+  }
+
+  async delete(id: ID) {
+    return this.#db.delete(user).where(eq(user.id, id)).execute();
+  }
+
+  async updateRole(id: ID, role: Role) {
+    return this.#db
+      .update(user)
+      .set({ role })
+      .where(eq(user.id, id))
+      .execute();
+  }
+
+  async updateEnabled(id: ID, enabled: boolean) {
+    return this.#db
+      .update(user)
+      .set({ enabled })
+      .where(eq(user.id, id))
+      .execute();
+  }
+
+  async updateEmail(id: ID, email: string | null) {
+    return this.#db
+      .update(user)
+      .set({ email })
+      .where(eq(user.id, id))
+      .execute();
+  }
+
+  async updatePasswordDirect(id: ID, newPassword: string) {
+    const hash = await hashPassword(newPassword);
+    return this.#db
+      .update(user)
+      .set({ password: hash })
+      .where(eq(user.id, id))
+      .execute();
+  }
+
+  async createAdmin(
+    username: string,
+    password: string,
+    role: Role,
+    email?: string | null
+  ) {
+    const hash = await hashPassword(password);
+
+    return this.#db.transaction(async (tx) => {
+      const oldUser = await tx.query.user
+        .findFirst({
+          where: eq(user.username, username),
+        })
+        .execute();
+
+      if (oldUser) {
+        throw new Error('User already exists');
+      }
+
+      const result = await tx.insert(user).values({
+        password: hash,
+        username,
+        email: email ?? null,
+        name: username,
+        role,
+        totpVerified: false,
+        enabled: true,
+      }).returning({ id: user.id });
+
+      return result[0];
     });
   }
 }

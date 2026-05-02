@@ -3,6 +3,7 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/libsql/migrator';
 import { createClient } from '@libsql/client';
 import debug from 'debug';
 import { eq } from 'drizzle-orm';
+import { roles } from '#shared/utils/permissions';
 
 import * as schema from './schema';
 import { ClientService } from './repositories/client/service';
@@ -12,6 +13,15 @@ import { UserConfigService } from './repositories/userConfig/service';
 import { InterfaceService } from './repositories/interface/service';
 import { HooksService } from './repositories/hooks/service';
 import { OneTimeLinkService } from './repositories/oneTimeLink/service';
+import { RouterService } from './repositories/router/service';
+import { QuotaService } from './repositories/quota/service';
+import { SpeedLimitService } from './repositories/speedLimit/service';
+import { UsageSampleService } from './repositories/usageSample/service';
+import { AuditLogService } from './repositories/auditLog/service';
+import { AdminRouterAclService } from './repositories/adminRouterAcl/service';
+import { ExitNodeService } from './repositories/exitNode/service';
+import { RoutePolicyService } from './repositories/routePolicy/service';
+import { ApiTokenService } from './repositories/apiToken/service';
 
 const DB_DEBUG = debug('Database');
 
@@ -21,6 +31,8 @@ const db = drizzle({ client, schema });
 export async function connect() {
   await migrate();
   const dbService = new DBService(db);
+
+  await promoteSingleAdminToSuperadmin(dbService);
 
   if (WG_INITIAL_ENV.ENABLED) {
     await initialSetup(dbService);
@@ -42,6 +54,15 @@ class DBService {
   interfaces: InterfaceService;
   hooks: HooksService;
   oneTimeLinks: OneTimeLinkService;
+  routers: RouterService;
+  quotas: QuotaService;
+  speedLimits: SpeedLimitService;
+  usageSamples: UsageSampleService;
+  auditLogs: AuditLogService;
+  adminRouterAcls: AdminRouterAclService;
+  exitNodes: ExitNodeService;
+  routePolicies: RoutePolicyService;
+  apiTokens: ApiTokenService;
 
   constructor(db: DBType) {
     this.clients = new ClientService(db);
@@ -51,6 +72,15 @@ class DBService {
     this.interfaces = new InterfaceService(db);
     this.hooks = new HooksService(db);
     this.oneTimeLinks = new OneTimeLinkService(db);
+    this.routers = new RouterService(db);
+    this.quotas = new QuotaService(db);
+    this.speedLimits = new SpeedLimitService(db);
+    this.usageSamples = new UsageSampleService(db);
+    this.auditLogs = new AuditLogService(db);
+    this.adminRouterAcls = new AdminRouterAclService(db);
+    this.exitNodes = new ExitNodeService(db);
+    this.routePolicies = new RoutePolicyService(db);
+    this.apiTokens = new ApiTokenService(db);
   }
 }
 
@@ -117,6 +147,16 @@ async function initialSetup(db: DBServiceType) {
     );
 
     await db.general.setSetupStep(0);
+  }
+}
+
+async function promoteSingleAdminToSuperadmin(db: DBServiceType) {
+  const allUsers = await db.users.getAll();
+  const adminUsers = allUsers.filter((u) => u.role === roles.ADMIN);
+
+  if (adminUsers.length === 1) {
+    DB_DEBUG('Promoting single admin to superadmin...');
+    await db.users.updateRole(adminUsers[0]!.id, roles.SUPERADMIN);
   }
 }
 

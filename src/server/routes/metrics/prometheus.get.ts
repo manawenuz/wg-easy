@@ -1,3 +1,5 @@
+import { getEngine } from '../../engines/registry';
+
 export default defineMetricsHandler('prometheus', async ({ event }) => {
   setHeader(event, 'Content-Type', 'text/plain');
   return getPrometheusResponse();
@@ -5,7 +7,21 @@ export default defineMetricsHandler('prometheus', async ({ event }) => {
 
 async function getPrometheusResponse() {
   const wgInterface = await Database.interfaces.get();
-  const clients = await WireGuard.getAllClients();
+  const engine = getEngine('wireguard');
+  const dbClients = await Database.clients.getAllPublic();
+  const usage = await engine.sampleUsage(wgInterface);
+
+  const clients = dbClients.map((client) => {
+    const sample = usage.find((s) => s.publicKey === client.publicKey);
+    return {
+      ...client,
+      latestHandshakeAt: sample?.lastHandshakeAt ?? null,
+      endpoint: sample?.endpoint ?? null,
+      transferRx: sample ? Number(sample.rxBytes) : null,
+      transferTx: sample ? Number(sample.txBytes) : null,
+    };
+  });
+
   let wireguardPeerCount = 0;
   let wireguardEnabledPeersCount = 0;
   let wireguardConnectedPeersCount = 0;
@@ -30,7 +46,6 @@ async function getPrometheusResponse() {
     wireguardReceivedBytes.push(
       `wireguard_received_bytes{${id}} ${client.transferRx ?? 0}`
     );
-    // TODO: if latestHandshakeAt is null this would result in client showing as online?
     wireguardLatestHandshakeSeconds.push(
       `wireguard_latest_handshake_seconds{${id}} ${client.latestHandshakeAt ? (Date.now() - client.latestHandshakeAt.getTime()) / 1000 : 0}`
     );

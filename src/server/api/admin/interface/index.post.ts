@@ -1,4 +1,5 @@
 import { InterfaceUpdateSchema } from '#db/repositories/interface/types';
+import { getEngine } from '../../../engines/registry';
 
 export default definePermissionEventHandler(
   'admin',
@@ -29,7 +30,12 @@ export default definePermissionEventHandler(
     }
 
     await Database.interfaces.update(data);
-    await WireGuard.saveConfig();
+
+    const iface = await Database.interfaces.get();
+    const engine = getEngine('wireguard');
+    const clients = await Database.clients.getAll();
+    await engine.syncInterface(iface, clients);
+
     return { success: true };
   }
 );
