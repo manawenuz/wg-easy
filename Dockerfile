@@ -23,6 +23,13 @@ RUN apk add linux-headers build-base go git && \
     cd ../amneziawg-tools/src && \
     make
 
+FROM docker.io/library/rust:alpine AS build-boringtun
+WORKDIR /app
+RUN apk add --no-cache musl-dev git
+RUN git clone https://github.com/cloudflare/boringtun.git
+WORKDIR /app/boringtun
+RUN cargo build --release --bin boringtun-cli
+
 FROM docker.io/library/node:krypton-alpine AS build-libsql
 WORKDIR /app
 RUN npm install --no-save --omit=dev libsql
@@ -51,6 +58,9 @@ RUN chmod +x /usr/bin/amneziawg-go
 COPY --from=build /app/amneziawg-tools/src/wg /usr/bin/awg
 COPY --from=build /app/amneziawg-tools/src/wg-quick/linux.bash /usr/bin/awg-quick
 RUN chmod +x /usr/bin/awg /usr/bin/awg-quick
+# Copy boringtun
+COPY --from=build-boringtun /app/boringtun/target/release/boringtun-cli /usr/bin/boringtun-cli
+RUN chmod +x /usr/bin/boringtun-cli
 
 # Install Linux packages
 RUN apk add --no-cache \

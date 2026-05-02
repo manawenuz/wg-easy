@@ -33,7 +33,7 @@ const cidr = z
 
 export const InterfaceUpdateSchema = schemaForType<InterfaceUpdateType>()(
   z.object({
-    engineType: z.enum(['wireguard', 'amneziawg']).optional(),
+    engineType: z.enum(['wireguard', 'amneziawg', 'boringtun', 'mikrotik']).optional(),
     ipv4Cidr: cidr,
     ipv6Cidr: cidr,
     mtu: MtuSchema,

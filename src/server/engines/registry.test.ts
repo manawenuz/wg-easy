@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getEngine } from './registry';
 import { WireguardEngine } from './wireguard';
 import { AmneziaWgEngine } from './amneziawg';
+import { BoringtunEngine } from './boringtun';
 import { MikrotikEngine } from './mikrotik';
 
 describe('engine registry', () => {
@@ -23,9 +24,9 @@ describe('engine registry', () => {
     expect(engine.id).toBe('mikrotik');
   });
 
-  it('throws for unregistered engines such as boringtun', () => {
-    expect(() => getEngine('boringtun')).toThrow(
-      "Engine 'boringtun' is not registered"
-    );
+  it('returns a BoringtunEngine for boringtun', () => {
+    const engine = getEngine('boringtun');
+    expect(engine).toBeInstanceOf(BoringtunEngine);
+    expect(engine.id).toBe('boringtun');
   });
 });
