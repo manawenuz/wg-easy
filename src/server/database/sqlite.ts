@@ -34,6 +34,7 @@ export async function connect() {
   const dbService = new DBService(db);
 
   await promoteSingleAdminToSuperadmin(dbService);
+  await migrateAwgEngineType(dbService);
 
   if (WG_INITIAL_ENV.ENABLED) {
     await initialSetup(dbService);
@@ -150,6 +151,18 @@ async function initialSetup(db: DBServiceType) {
     );
 
     await db.general.setSetupStep(0);
+  }
+}
+
+async function migrateAwgEngineType(db: DBServiceType) {
+  /** TODO: delete on next major version */
+  if (WG_ENV.WG_EXECUTABLE === 'awg') {
+    const iface = await db.interfaces.get().catch(() => null);
+    if (iface && iface.engineType === 'wireguard') {
+      DB_DEBUG('Migrating interface from wireguard to amneziawg engine...');
+      await db.interfaces.update({ engineType: 'amneziawg' });
+      DB_DEBUG('Migration complete');
+    }
   }
 }
 

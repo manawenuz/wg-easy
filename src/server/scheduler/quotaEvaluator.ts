@@ -5,8 +5,8 @@ export async function runQuotaEvaluator() {
   const overLimit = await quotaService.findOverLimit();
   if (overLimit.length === 0) return;
 
-  const engine = getEngine('wireguard');
   const iface = await Database.interfaces.get();
+  const engine = getEngine(iface.engineType);
 
   for (const q of overLimit) {
     const client = await Database.clients.get(q.clientId);

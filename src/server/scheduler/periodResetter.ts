@@ -5,8 +5,8 @@ export async function runPeriodResetter() {
   const expired = await quotaService.findExpiredPeriods();
   if (expired.length === 0) return;
 
-  const engine = getEngine('wireguard');
   const iface = await Database.interfaces.get();
+  const engine = getEngine(iface.engineType);
 
   for (const q of expired) {
     const wasDisabledByQuota = q.disabledByQuotaAt !== null;

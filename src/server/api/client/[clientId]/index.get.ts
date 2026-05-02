@@ -21,7 +21,7 @@ export default definePermissionEventHandler(
     }
 
     const iface = await Database.interfaces.get();
-    const engine = getEngine('wireguard');
+    const engine = getEngine(iface.engineType);
     const usage = await engine.sampleUsage(iface);
     const data = usage.find((s) => s.publicKey === result.publicKey);
 

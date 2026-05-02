@@ -2,6 +2,12 @@
   <main v-if="data">
     <FormElement @submit.prevent="submit">
       <FormGroup>
+        <InterfacesEngineSelector
+          id="engineType"
+          v-model="data.engineType"
+          :label="$t('admin.interface.engineType')"
+          :description="$t('admin.interface.engineTypeDesc')"
+        />
         <FormNumberField
           id="mtu"
           v-model="data.mtu"
@@ -21,7 +27,7 @@
           :description="$t('admin.interface.deviceDesc')"
         />
       </FormGroup>
-      <FormGroup v-if="globalStore.information?.isAwg">
+      <FormGroup v-if="data.engineType === 'amneziawg'">
         <FormHeading>{{ $t('awg.obfuscationParameters') }}</FormHeading>
 
         <FormNullNumberField

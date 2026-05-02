@@ -11,7 +11,7 @@ export async function setSpeedLimit(
   }
 
   const iface = await Database.interfaces.get();
-  const engine = getEngine('wireguard');
+  const engine = getEngine(iface.engineType);
 
   if (engine.capabilities.speedLimit === 'none') {
     throw new Error('Speed limits are not supported by this engine');
@@ -36,7 +36,7 @@ export async function clearSpeedLimit(clientId: ID) {
   }
 
   const iface = await Database.interfaces.get();
-  const engine = getEngine('wireguard');
+  const engine = getEngine(iface.engineType);
 
   await engine.clearSpeedLimit(iface, client.publicKey);
   await Database.speedLimits.delete(clientId);

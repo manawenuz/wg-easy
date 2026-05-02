@@ -11,7 +11,7 @@ export default definePermissionEventHandler(
     );
 
     const iface = await Database.interfaces.get();
-    const engine = getEngine('wireguard');
+    const engine = getEngine(iface.engineType);
 
     let dbClients;
     if (user.role === roles.ADMIN) {

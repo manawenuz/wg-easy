@@ -1,27 +1,28 @@
 import { writeFile } from 'node:fs/promises';
 import debug from 'debug';
 
-import { configgen } from './configgen';
-import { applySpeedLimit, clearSpeedLimit } from './speedlimit';
+import { setIntervalImmediately } from '../../../shared/utils/time';
+import type { InterfaceType } from '#db/repositories/interface/types';
 import type { LocalShellTransport } from '../../transports/local-shell';
 import type {
-  VpnEngine,
+  Client,
   EngineCapabilities,
-  UsageSample,
   Health,
+  Hooks,
+  UsageSample,
+  VpnEngine,
 } from '../types';
-import type { InterfaceType } from '#db/repositories/interface/types';
-import type { Client, Hooks } from '../types';
-import { setIntervalImmediately } from '../../../shared/utils/time';
-import { parseWgDump } from '../wg-like';
+import { generateRandomHeaderValue, parseWgDump } from '../wg-like';
+import { applySpeedLimit, clearSpeedLimit } from '../wireguard/speedlimit';
+import { configgen } from './configgen';
 
-const WG_DEBUG = debug('WireGuard');
+const AWG_DEBUG = debug('AmneziaWG');
 
-export class WireguardEngine implements VpnEngine {
-  readonly id = 'wireguard' as const;
+export class AmneziaWgEngine implements VpnEngine {
+  readonly id = 'amneziawg' as const;
   get capabilities(): EngineCapabilities {
     return {
-      obfuscation: 'none',
+      obfuscation: 'amneziawg-params',
       speedLimit: 'engine-native',
       multiPeerSync: true,
       livePeerStats: true,
@@ -42,7 +43,7 @@ export class WireguardEngine implements VpnEngine {
   }
 
   async bringUp(iface: InterfaceType): Promise<void> {
-    WG_DEBUG('Starting Wireguard engine');
+    AWG_DEBUG('Starting AmneziaWG engine');
 
     let wgInterface = iface;
 
@@ -50,33 +51,47 @@ export class WireguardEngine implements VpnEngine {
       wgInterface.privateKey === '---default---' &&
       wgInterface.publicKey === '---default---'
     ) {
-      WG_DEBUG('Generating new Wireguard Keys...');
+      AWG_DEBUG('Generating new Wireguard Keys...');
       const { wg } = await import('../../utils/wgHelper');
       const privateKey = await wg.generatePrivateKey();
       const publicKey = await wg.getPublicKey(privateKey);
       await Database.interfaces.updateKeyPair(privateKey, publicKey);
       wgInterface = await Database.interfaces.get();
-      WG_DEBUG('New Wireguard Keys generated successfully.');
+      AWG_DEBUG('New Wireguard Keys generated successfully.');
     }
 
-    WG_DEBUG(`Starting Wireguard interface ${wgInterface.name}`);
+    if (wgInterface.h1 === '0' || !wgInterface.h1) {
+      AWG_DEBUG('Generating random AmneziaWG obfuscation parameters...');
+      const headers = new Set<number>();
+      while (headers.size < 4) {
+        headers.add(generateRandomHeaderValue());
+      }
+      const [h1, h2, h3, h4] = Array.from(headers);
+      wgInterface.h1 = String(h1)!;
+      wgInterface.h2 = String(h2)!;
+      wgInterface.h3 = String(h3)!;
+      wgInterface.h4 = String(h4)!;
+      await Database.interfaces.update(wgInterface);
+    }
+
+    AWG_DEBUG(`Starting AmneziaWG interface ${wgInterface.name}`);
 
     const clients = await Database.clients.getAll();
     const hooks = await Database.hooks.get();
 
     await this.#writeConfig(wgInterface, clients, hooks);
-    await this.transport.exec(`wg-quick down ${wgInterface.name}`).catch(() => {});
-    await this.transport.exec(`wg-quick up ${wgInterface.name}`).catch((err) => {
+    await this.transport.exec(`awg-quick down ${wgInterface.name}`).catch(() => {});
+    await this.transport.exec(`awg-quick up ${wgInterface.name}`).catch((err) => {
       if (err?.message?.includes(`Cannot find device "${wgInterface.name}"`)) {
         throw new Error(
-          `WireGuard exited with the error: Cannot find device "${wgInterface.name}"\nThis usually means that your host's kernel does not support WireGuard!`,
+          `AmneziaWG exited with the error: Cannot find device "${wgInterface.name}"\nThis usually means that your host's kernel does not support AmneziaWG!`,
           { cause: err.message }
         );
       }
       throw err;
     });
     await this.#sync(wgInterface.name);
-    WG_DEBUG(`Wireguard interface ${wgInterface.name} started successfully`);
+    AWG_DEBUG(`AmneziaWG interface ${wgInterface.name} started successfully`);
 
     if (wgInterface.firewallEnabled) {
       const enableIpv6 = !WG_ENV.DISABLE_IPV6;
@@ -91,29 +106,29 @@ export class WireguardEngine implements VpnEngine {
       }
     }
 
-    WG_DEBUG('Applying firewall rules');
+    AWG_DEBUG('Applying firewall rules');
     await this.#applyFirewall(wgInterface);
-    WG_DEBUG('Firewall rules applied successfully');
+    AWG_DEBUG('Firewall rules applied successfully');
 
-    WG_DEBUG('Re-applying speed limits');
+    AWG_DEBUG('Re-applying speed limits');
     await this.#reapplySpeedLimits(wgInterface);
-    WG_DEBUG('Speed limits re-applied successfully');
+    AWG_DEBUG('Speed limits re-applied successfully');
 
     if (!this.#cronJobStarted) {
       this.#cronJobStarted = true;
-      WG_DEBUG('Starting cron job');
+      AWG_DEBUG('Starting cron job');
       setIntervalImmediately(() => {
         this.#cronJob().catch((err) => {
-          WG_DEBUG('Running cron job failed');
+          AWG_DEBUG('Running cron job failed');
           console.error(err);
         });
       }, 60 * 1000);
-      WG_DEBUG('Cron job started successfully');
+      AWG_DEBUG('Cron job started successfully');
     }
   }
 
   async bringDown(iface: InterfaceType): Promise<void> {
-    await this.transport.exec(`wg-quick down ${iface.name}`).catch(() => {});
+    await this.transport.exec(`awg-quick down ${iface.name}`).catch(() => {});
   }
 
   async syncInterface(iface: InterfaceType, peers: Client[]): Promise<void> {
@@ -150,7 +165,7 @@ export class WireguardEngine implements VpnEngine {
 
   async sampleUsage(iface: InterfaceType): Promise<UsageSample[]> {
     const rawDump = await this.transport.exec(
-      `wg show ${iface.name} dump`
+      `awg show ${iface.name} dump`
     );
     return parseWgDump(rawDump.stdout);
   }
@@ -189,7 +204,6 @@ export class WireguardEngine implements VpnEngine {
     result.push(
       configgen.generateServerInterface(iface, hooks, {
         enableIpv6: !WG_ENV.DISABLE_IPV6,
-        engineType: 'wireguard',
       })
     );
 
@@ -206,7 +220,7 @@ export class WireguardEngine implements VpnEngine {
 
     result.push('');
 
-    WG_DEBUG('Saving config');
+    AWG_DEBUG('Saving config');
     await writeFile(
       `/etc/wireguard/${iface.name}.conf`,
       result.join('\n\n'),
@@ -214,15 +228,15 @@ export class WireguardEngine implements VpnEngine {
         mode: 0o600,
       }
     );
-    WG_DEBUG('Config saved successfully');
+    AWG_DEBUG('Config saved successfully');
   }
 
   async #sync(ifaceName: string): Promise<void> {
-    WG_DEBUG('Syncing config');
+    AWG_DEBUG('Syncing config');
     await this.transport.exec(
-      `wg syncconf ${ifaceName} <(wg-quick strip ${ifaceName})`
+      `awg syncconf ${ifaceName} <(awg-quick strip ${ifaceName})`
     );
-    WG_DEBUG('Config synced successfully');
+    AWG_DEBUG('Config synced successfully');
   }
 
   async #applyFirewall(iface: InterfaceType): Promise<void> {
@@ -241,7 +255,7 @@ export class WireguardEngine implements VpnEngine {
       try {
         await applySpeedLimit(this.transport, iface, peer, sl.upKbps, sl.downKbps);
       } catch (err) {
-        WG_DEBUG(`Failed to reapply speed limit for client ${sl.clientId}:`, err);
+        AWG_DEBUG(`Failed to reapply speed limit for client ${sl.clientId}:`, err);
       }
     }
   }
@@ -256,7 +270,7 @@ export class WireguardEngine implements VpnEngine {
         client.expiresAt !== null &&
         new Date() > new Date(client.expiresAt)
       ) {
-        WG_DEBUG(`Client ${client.id} expired`);
+        AWG_DEBUG(`Client ${client.id} expired`);
         await Database.clients.toggle(client.id, false);
         needsSave = true;
       }
@@ -267,7 +281,7 @@ export class WireguardEngine implements VpnEngine {
         client.oneTimeLink !== null &&
         new Date() > new Date(client.oneTimeLink.expiresAt)
       ) {
-        WG_DEBUG(`OneTimeLink for Client ${client.id} expired`);
+        AWG_DEBUG(`OneTimeLink for Client ${client.id} expired`);
         await Database.oneTimeLinks.delete(client.id);
       }
     }

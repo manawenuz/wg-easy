@@ -1,6 +1,7 @@
 import { sql, relations } from 'drizzle-orm';
 import { int, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+import type { EngineType } from '../../../engines/types';
 import { userConfig, hooks, router } from '../../schema';
 
 // maybe support multiple interfaces in the future
@@ -35,7 +36,7 @@ export const wgInterface = sqliteTable('interfaces_table', {
   firewallEnabled: int('firewall_enabled', { mode: 'boolean' })
     .notNull()
     .default(false),
-  engineType: text('engine_type').notNull().default('wireguard'),
+  engineType: text('engine_type').$type<EngineType>().notNull().default('wireguard'),
   routerId: int('router_id')
     .notNull()
     .default(0)

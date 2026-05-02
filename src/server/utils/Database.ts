@@ -29,8 +29,8 @@ let provider = nullObject as never as DBServiceType;
 
 connect().then(async (db) => {
   provider = db;
-  const engine = getEngine('wireguard');
   const iface = await db.interfaces.get();
+  const engine = getEngine(iface.engineType);
   await engine.bringUp(iface);
   startScheduler();
 });

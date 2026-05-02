@@ -7,7 +7,7 @@ export default defineMetricsHandler('prometheus', async ({ event }) => {
 
 async function getPrometheusResponse() {
   const wgInterface = await Database.interfaces.get();
-  const engine = getEngine('wireguard');
+  const engine = getEngine(wgInterface.engineType);
   const dbClients = await Database.clients.getAllPublic();
   const usage = await engine.sampleUsage(wgInterface);
 

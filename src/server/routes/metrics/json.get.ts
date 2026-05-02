@@ -6,7 +6,7 @@ export default defineMetricsHandler('json', async () => {
 
 async function getMetricsJSON() {
   const iface = await Database.interfaces.get();
-  const engine = getEngine('wireguard');
+  const engine = getEngine(iface.engineType);
   const dbClients = await Database.clients.getAllPublic();
   const usage = await engine.sampleUsage(iface);
 

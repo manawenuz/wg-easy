@@ -1,5 +1,15 @@
 import { InterfaceUpdateSchema } from '#db/repositories/interface/types';
 import { getEngine } from '../../../engines/registry';
+import { exec } from '../../../utils/cmd';
+
+async function isAwgAvailable(): Promise<boolean> {
+  try {
+    await exec('which awg', { log: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export default definePermissionEventHandler(
   'admin',
@@ -9,6 +19,18 @@ export default definePermissionEventHandler(
       event,
       validateZod(InterfaceUpdateSchema, event)
     );
+
+    // Validate engine type against installed tools
+    if (data.engineType === 'amneziawg') {
+      const awgAvailable = await isAwgAvailable();
+      if (!awgAvailable) {
+        throw createError({
+          statusCode: 400,
+          statusMessage:
+            'AmneziaWG is not available on this system. Please install amneziawg-tools before selecting this engine.',
+        });
+      }
+    }
 
     // If enabling firewall, check if iptables is available
     if (data.firewallEnabled) {
@@ -32,7 +54,7 @@ export default definePermissionEventHandler(
     await Database.interfaces.update(data);
 
     const iface = await Database.interfaces.get();
-    const engine = getEngine('wireguard');
+    const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();
     await engine.syncInterface(iface, clients);
 

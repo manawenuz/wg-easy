@@ -11,8 +11,8 @@ export default defineNitroPlugin((nitroApp) => {
   console.log(`====================================================`);
   nitroApp.hooks.hook('close', async () => {
     console.log('Shutting down');
-    const engine = getEngine('wireguard');
     const iface = await Database.interfaces.get();
+    const engine = getEngine(iface.engineType);
     await engine.bringDown(iface);
   });
 });

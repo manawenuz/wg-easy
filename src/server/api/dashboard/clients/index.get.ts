@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const dbClients = await Database.clients.getForUser(userId);
 
   const iface = await Database.interfaces.get();
-  const engine = getEngine('wireguard');
+  const engine = getEngine(iface.engineType);
   const usage = await engine.sampleUsage(iface);
 
   const quotas = await Database.quotas.getAll();

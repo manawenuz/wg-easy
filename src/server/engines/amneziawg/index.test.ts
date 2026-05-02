@@ -5,9 +5,9 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(),
 }));
 
-describe('WireguardEngine', () => {
-  let WireguardEngine: typeof import('./index').WireguardEngine;
-  let engine: import('./index').WireguardEngine;
+describe('AmneziaWgEngine', () => {
+  let AmneziaWgEngine: typeof import('./index').AmneziaWgEngine;
+  let engine: import('./index').AmneziaWgEngine;
   let transportExec: ReturnType<typeof vi.fn>;
   let fsWriteFile: ReturnType<typeof vi.fn>;
 
@@ -38,6 +38,7 @@ describe('WireguardEngine', () => {
     i5: null,
     enabled: true,
     firewallEnabled: false,
+    engineType: 'amneziawg',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -138,12 +139,12 @@ describe('WireguardEngine', () => {
 
     (globalThis as any).WG_ENV = {
       DISABLE_IPV6: false,
-      WG_EXECUTABLE: 'wg',
+      WG_EXECUTABLE: 'awg',
     };
 
     const mod = await import('./index');
-    WireguardEngine = mod.WireguardEngine;
-    engine = new WireguardEngine(mockTransport);
+    AmneziaWgEngine = mod.AmneziaWgEngine;
+    engine = new AmneziaWgEngine(mockTransport);
 
     fsWriteFile = vi.mocked(
       await import('node:fs/promises')
@@ -154,18 +155,32 @@ describe('WireguardEngine', () => {
     vi.clearAllMocks();
   });
 
-  it('syncInterface writes config and calls wg syncconf', async () => {
+  it('has correct capabilities', () => {
+    expect(engine.capabilities).toMatchObject({
+      obfuscation: 'amneziawg-params',
+      speedLimit: 'engine-native',
+      multiPeerSync: true,
+      livePeerStats: true,
+    });
+  });
+
+  it('syncInterface writes config with AWG params and calls awg syncconf', async () => {
     await engine.syncInterface(mockInterface as any, [mockClient as any]);
 
     expect(fsWriteFile).toHaveBeenCalledOnce();
     const configText = fsWriteFile.mock.calls[0]![1] as string;
     expect(configText).toContain('[Interface]');
     expect(configText).toContain('PrivateKey = abc123');
+    expect(configText).toContain('Jc = 7');
+    expect(configText).toContain('Jmin = 10');
+    expect(configText).toContain('Jmax = 1000');
+    expect(configText).toContain('S1 = 128');
+    expect(configText).toContain('H1 = 12345');
     expect(configText).toContain('[Peer]');
     expect(configText).toContain('PublicKey = clientPub');
 
     expect(transportExec).toHaveBeenCalledWith(
-      expect.stringContaining('wg syncconf wg0')
+      expect.stringContaining('awg syncconf wg0')
     );
   });
 
@@ -174,11 +189,11 @@ describe('WireguardEngine', () => {
 
     expect(fsWriteFile).toHaveBeenCalledOnce();
     expect(transportExec).toHaveBeenCalledWith(
-      expect.stringContaining('wg syncconf wg0')
+      expect.stringContaining('awg syncconf wg0')
     );
   });
 
-  it('sampleUsage parses wg show dump correctly', async () => {
+  it('sampleUsage parses awg show dump correctly', async () => {
     transportExec.mockResolvedValueOnce({
       stdout:
         'privateKey\t-\t(none)\t(none)\t0\t0\t0\t0\n' +

@@ -48,7 +48,7 @@ describe('admin/clients/[id]/speed-limit.delete', () => {
         getAll: vi.fn(async () => [{ id: 1, name: 'client1', publicKey: 'pk1' }]),
       },
       interfaces: {
-        get: vi.fn(async () => ({ name: 'wg0' })),
+        get: vi.fn(async () => ({ name: 'wg0', engineType: 'wireguard' })),
       },
       speedLimits: {
         delete: vi.fn(async () => {}),

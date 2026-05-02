@@ -2,8 +2,8 @@ import { getEngine } from '../engines/registry';
 import { quotaService } from '../services/quotaService';
 
 export async function runUsagePoller() {
-  const engine = getEngine('wireguard');
   const iface = await Database.interfaces.get();
+  const engine = getEngine(iface.engineType);
   const samples = await engine.sampleUsage(iface);
   const clients = await Database.clients.getAll();
 

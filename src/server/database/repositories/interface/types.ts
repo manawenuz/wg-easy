@@ -17,7 +17,6 @@ export type InterfaceUpdateType = Omit<
   | 'updatedAt'
   | 'privateKey'
   | 'publicKey'
-  | 'engineType'
   | 'routerId'
 >;
 
@@ -34,6 +33,7 @@ const cidr = z
 
 export const InterfaceUpdateSchema = schemaForType<InterfaceUpdateType>()(
   z.object({
+    engineType: z.enum(['wireguard', 'amneziawg']).optional(),
     ipv4Cidr: cidr,
     ipv6Cidr: cidr,
     mtu: MtuSchema,

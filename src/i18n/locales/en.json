@@ -178,6 +178,8 @@
       "cidrSuccess": "Changed CIDR",
       "device": "Device",
       "deviceDesc": "Ethernet device the wireguard traffic should be forwarded through",
+      "engineType": "Engine",
+      "engineTypeDesc": "VPN engine for this interface",
       "mtuDesc": "MTU WireGuard will use",
       "portDesc": "UDP Port WireGuard will listen on (you probably want to change Config Port too)",
       "changeCidr": "Change CIDR",

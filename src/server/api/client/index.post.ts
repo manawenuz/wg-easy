@@ -13,7 +13,7 @@ export default definePermissionEventHandler(
     const result = await Database.clients.create({ name, expiresAt });
 
     const iface = await Database.interfaces.get();
-    const engine = getEngine('wireguard');
+    const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();
     await engine.syncInterface(iface, clients);
 

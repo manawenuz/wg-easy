@@ -12,7 +12,7 @@ export default definePermissionEventHandler(
     await Database.hooks.update(data);
 
     const iface = await Database.interfaces.get();
-    const engine = getEngine('wireguard');
+    const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();
     await engine.syncInterface(iface, clients);
 
