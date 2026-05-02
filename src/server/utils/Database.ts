@@ -4,6 +4,7 @@
  */
 import { connect, type DBServiceType } from '#db/sqlite';
 import { getEngine } from '../engines/registry';
+import { startScheduler } from '../scheduler';
 
 if (OLD_ENV.PASSWORD || OLD_ENV.PASSWORD_HASH) {
   throw new Error(
@@ -31,6 +32,7 @@ connect().then(async (db) => {
   const engine = getEngine('wireguard');
   const iface = await db.interfaces.get();
   await engine.bringUp(iface);
+  startScheduler();
 });
 
 export default provider;

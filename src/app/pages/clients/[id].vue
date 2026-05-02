@@ -174,6 +174,7 @@
               :label="$t('hooks.postDown')"
             />
           </FormGroup>
+          <ClientsQuotaForm :client-id="data.id" />
           <FormGroup>
             <FormHeading>{{ $t('form.actions') }}</FormHeading>
             <FormPrimaryActionField type="submit" :label="$t('form.save')" />
