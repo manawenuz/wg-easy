@@ -88,31 +88,30 @@ classDiagram
     class VpnEngine {
         <<interface>>
         +id: EngineType
-        +supportsObfuscation: boolean
-        +supportsSpeedLimit: boolean
-        +healthCheck() Promise~Health~
-        +syncInterface(iface, peers) Promise~void~
-        +createPeer(iface, peer) Promise~void~
-        +updatePeer(iface, peer) Promise~void~
-        +removePeer(iface, peerId) Promise~void~
-        +enablePeer(iface, peerId) Promise~void~
-        +disablePeer(iface, peerId) Promise~void~
-        +applySpeedLimit(iface, peerId, kbpsUp, kbpsDown) Promise~void~
-        +sampleUsage(iface) Promise~UsageSample[]~
-        +bringUp(iface) Promise~void~
-        +bringDown(iface) Promise~void~
+        +capabilities: EngineCapabilities
+        +healthCheck(iface: InterfaceType) Promise~Health~
+        +syncInterface(iface: InterfaceType, peers: Client[]) Promise~void~
+        +createPeer(iface: InterfaceType, peer: Client) Promise~void~
+        +updatePeer(iface: InterfaceType, peer: Client) Promise~void~
+        +removePeer(iface: InterfaceType, peerPublicKey: string) Promise~void~
+        +enablePeer(iface: InterfaceType, peerPublicKey: string) Promise~void~
+        +disablePeer(iface: InterfaceType, peerPublicKey: string) Promise~void~
+        +applySpeedLimit(iface, peerPublicKey, upKbps, downKbps) Promise~void~
+        +sampleUsage(iface: InterfaceType) Promise~UsageSample[]~
+        +bringUp(iface: InterfaceType) Promise~void~
+        +bringDown(iface: InterfaceType) Promise~void~
     }
 
     class WireguardEngine {
-        -transport: LocalShell
+        -transport: LocalShellTransport
         +generateConfig(iface, peers) string
     }
     class AmneziaWgEngine {
-        -transport: LocalShell
+        -transport: LocalShellTransport
         +generateConfig(iface, peers) string
     }
     class BoringtunEngine {
-        -transport: LocalShell
+        -transport: LocalShellTransport
         -process: ChildProcess
     }
     class MikrotikEngine {
