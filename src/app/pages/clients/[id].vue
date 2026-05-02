@@ -175,6 +175,7 @@
             />
           </FormGroup>
           <ClientsQuotaForm :client-id="data.id" />
+          <ClientsSpeedLimitForm :client-id="Number(id)" />
           <FormGroup>
             <FormHeading>{{ $t('form.actions') }}</FormHeading>
             <FormPrimaryActionField type="submit" :label="$t('form.save')" />

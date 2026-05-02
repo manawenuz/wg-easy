@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import debug from 'debug';
 
 import { configgen } from './configgen';
+import { applySpeedLimit, clearSpeedLimit } from './speedlimit';
 import type { LocalShellTransport } from '../../transports/local-shell';
 import type {
   VpnEngine,
@@ -123,6 +124,10 @@ export class WireguardEngine implements VpnEngine {
     await this.#applyFirewall(wgInterface);
     WG_DEBUG('Firewall rules applied successfully');
 
+    WG_DEBUG('Re-applying speed limits');
+    await this.#reapplySpeedLimits(wgInterface);
+    WG_DEBUG('Speed limits re-applied successfully');
+
     if (!this.#cronJobStarted) {
       this.#cronJobStarted = true;
       WG_DEBUG('Starting cron job');
@@ -221,24 +226,7 @@ export class WireguardEngine implements VpnEngine {
       throw new Error(`Peer with public key ${peerPublicKey} not found`);
     }
 
-    const classId = hashPublicKey(peerPublicKey);
-
-    await this.transport.exec(
-      `tc qdisc add dev ${iface.name} root handle 1: htb default 12 2>/dev/null || true`
-    );
-    await this.transport.exec(
-      `tc class add dev ${iface.name} parent 1: classid 1:${classId} htb rate ${downKbps}kbit ceil ${downKbps}kbit 2>/dev/null || tc class change dev ${iface.name} parent 1: classid 1:${classId} htb rate ${downKbps}kbit ceil ${downKbps}kbit`
-    );
-    await this.transport.exec(
-      `tc filter add dev ${iface.name} protocol ip parent 1: prio 1 u32 match ip dst ${peer.ipv4Address}/32 flowid 1:${classId} 2>/dev/null || true`
-    );
-
-    await this.transport.exec(
-      `tc qdisc add dev ${iface.name} handle ffff: ingress 2>/dev/null || true`
-    );
-    await this.transport.exec(
-      `tc filter add dev ${iface.name} parent ffff: protocol ip u32 match ip src ${peer.ipv4Address}/32 police rate ${upKbps}kbit burst 10k drop 2>/dev/null || true`
-    );
+    await applySpeedLimit(this.transport, iface, peer, upKbps, downKbps);
   }
 
   async clearSpeedLimit(iface: InterfaceType, peerPublicKey: string): Promise<void> {
@@ -248,12 +236,7 @@ export class WireguardEngine implements VpnEngine {
       return;
     }
 
-    await this.transport.exec(
-      `tc filter del dev ${iface.name} protocol ip parent 1: prio 1 u32 match ip dst ${peer.ipv4Address}/32 2>/dev/null || true`
-    );
-    await this.transport.exec(
-      `tc filter del dev ${iface.name} parent ffff: protocol ip u32 match ip src ${peer.ipv4Address}/32 2>/dev/null || true`
-    );
+    await clearSpeedLimit(this.transport, iface, peer);
   }
 
   async #writeConfig(
@@ -305,6 +288,21 @@ export class WireguardEngine implements VpnEngine {
     const clients = await Database.clients.getAll();
     const userConfig = await Database.userConfigs.get();
     await firewall.rebuildRules(iface, clients, userConfig, !WG_ENV.DISABLE_IPV6);
+  }
+
+  async #reapplySpeedLimits(iface: InterfaceType): Promise<void> {
+    const speedLimits = await Database.speedLimits.getAllForInterface(iface.name);
+    const clients = await Database.clients.getAll();
+
+    for (const sl of speedLimits) {
+      const peer = clients.find((c) => c.id === sl.clientId);
+      if (!peer || !peer.enabled) continue;
+      try {
+        await applySpeedLimit(this.transport, iface, peer, sl.upKbps, sl.downKbps);
+      } catch (err) {
+        WG_DEBUG(`Failed to reapply speed limit for client ${sl.clientId}:`, err);
+      }
+    }
   }
 
   async #cronJob(): Promise<void> {

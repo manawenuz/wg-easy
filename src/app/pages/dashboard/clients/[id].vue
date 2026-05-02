@@ -59,10 +59,21 @@
                 {{ bytes(client.quota.limitBytes) }}
               </span>
             </div>
-            <div v-if="client.speedLimit">
-              {{ $t('client.speedLimit') }}:
-              {{ client.speedLimit.upKbps }}kbps /
-              {{ client.speedLimit.downKbps }}kbps
+            <div
+              v-if="client.speedLimit && (client.speedLimit.upKbps > 0 || client.speedLimit.downKbps > 0)"
+              class="flex items-center gap-2"
+            >
+              <span>Speed Limit:</span>
+              <span
+                class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              >
+                ↓ {{ formatKbps(client.speedLimit.downKbps) }}
+              </span>
+              <span
+                class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              >
+                ↑ {{ formatKbps(client.speedLimit.upKbps) }}
+              </span>
             </div>
           </div>
 
@@ -139,6 +150,12 @@
 </template>
 
 <script setup lang="ts">
+function formatKbps(kbps: number): string {
+  if (kbps === 0) return 'Unlimited';
+  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
+  return `${kbps} KB/s`;
+}
+
 const route = useRoute();
 const dashboardStore = useDashboardStore();
 const { t } = useI18n();

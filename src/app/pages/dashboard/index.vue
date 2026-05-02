@@ -77,12 +77,19 @@
                   </span>
                 </div>
                 <div
-                  v-if="client.speedLimit"
-                  class="text-xs text-gray-500 dark:text-neutral-400"
+                  v-if="client.speedLimit && (client.speedLimit.upKbps > 0 || client.speedLimit.downKbps > 0)"
+                  class="flex items-center gap-1"
                 >
-                  {{ $t('client.speedLimit') }}:
-                  {{ client.speedLimit.upKbps }}kbps /
-                  {{ client.speedLimit.downKbps }}kbps
+                  <span
+                    class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                  >
+                    ↓ {{ formatKbps(client.speedLimit.downKbps) }}
+                  </span>
+                  <span
+                    class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                  >
+                    ↑ {{ formatKbps(client.speedLimit.upKbps) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -140,6 +147,12 @@
 
 <script setup lang="ts">
 import { format as timeago } from 'timeago.js';
+
+function formatKbps(kbps: number): string {
+  if (kbps === 0) return 'Unlimited';
+  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
+  return `${kbps} KB/s`;
+}
 
 const dashboardStore = useDashboardStore();
 
