@@ -80,6 +80,12 @@ function createPreparedStatement(db: DBType) {
       .set({ enabled: sql.placeholder('enabled') as never as boolean })
       .where(eq(client.id, sql.placeholder('id')))
       .prepare(),
+    findByPublicKey: db.query.client
+      .findFirst({
+        where: eq(client.publicKey, sql.placeholder('publicKey')),
+        with: { user: true },
+      })
+      .prepare(),
     delete: db
       .delete(client)
       .where(eq(client.id, sql.placeholder('id')))
@@ -166,6 +172,10 @@ export class ClientService {
 
   get(id: ID) {
     return this.#statements.findById.execute({ id });
+  }
+
+  async findByPublicKey(publicKey: string) {
+    return this.#statements.findByPublicKey.execute({ publicKey });
   }
 
   async create({ name, expiresAt }: ClientCreateType) {

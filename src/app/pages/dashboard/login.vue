@@ -11,58 +11,108 @@
         </p>
       </div>
 
-      <BaseTextArea
-        v-model="publicKey"
-        :placeholder="$t('dashboard.publicKeyPlaceholder')"
-        rows="3"
+      <div class="flex border-b border-gray-200 dark:border-neutral-600">
+        <button
+          class="flex-1 pb-2 text-sm font-medium transition"
+          :class="{
+            'border-b-2 border-red-800 text-red-800 dark:border-red-400 dark:text-red-400':
+              activeTab === 'qr',
+            'text-gray-500 dark:text-neutral-400': activeTab !== 'qr',
+          }"
+          @click="activeTab = 'qr'"
+        >
+          {{ $t('dashboard.scanQr') }}
+        </button>
+        <button
+          class="flex-1 pb-2 text-sm font-medium transition"
+          :class="{
+            'border-b-2 border-red-800 text-red-800 dark:border-red-400 dark:text-red-400':
+              activeTab === 'paste',
+            'text-gray-500 dark:text-neutral-400': activeTab !== 'paste',
+          }"
+          @click="activeTab = 'paste'"
+        >
+          {{ $t('dashboard.pasteConfig') }}
+        </button>
+      </div>
+
+      <DashboardQrLogin
+        v-if="activeTab === 'qr'"
+        @scan="handleLogin"
+      />
+      <DashboardPasteConfigLogin
+        v-else
+        @submit="handleLogin"
       />
 
-      <button
-        class="rounded py-2 text-sm text-white shadow transition"
-        :class="{
-          'cursor-pointer bg-red-800 hover:bg-red-700 dark:bg-red-800 dark:hover:bg-red-700':
-            publicKey.trim(),
-          'cursor-not-allowed bg-gray-200 dark:bg-neutral-800':
-            !publicKey.trim(),
-        }"
-        @click="submit"
-      >
-        <IconsLoading v-if="authenticating" class="mx-auto w-5 animate-spin" />
-        <span v-else>{{ $t('dashboard.signIn') }}</span>
-      </button>
+      <div v-if="authenticating" class="text-center">
+        <IconsLoading class="mx-auto w-5 animate-spin" />
+      </div>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
+import nacl from 'tweetnacl';
+
 const { t } = useI18n();
 
+const activeTab = ref<'qr' | 'paste'>('qr');
 const authenticating = ref(false);
-const publicKey = ref('');
 
-const _submit = useSubmit(
-  '/api/user-session',
-  {
-    method: 'post',
-  },
-  {
-    revert: async (success) => {
-      authenticating.value = false;
-      if (success) {
-        await navigateTo('/dashboard');
-      } else {
-        publicKey.value = '';
-      }
-    },
-    noSuccessToast: true,
-  }
-);
+function decodeBase64(s: string): Uint8Array {
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+}
 
-function submit() {
-  if (!publicKey.value.trim() || authenticating.value) return;
+function encodeBase64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
+}
 
+async function handleLogin(privateKey: string) {
+  if (authenticating.value) return;
   authenticating.value = true;
-  return _submit({ publicKey: publicKey.value.trim() });
+
+  try {
+    const privateKeyBytes = decodeBase64(privateKey);
+    const publicKeyBytes = nacl.scalarMult.base(privateKeyBytes);
+    const publicKeyBase64 = encodeBase64(publicKeyBytes);
+
+    const challengeRes = await $fetch('/api/dashboard/login/challenge', {
+      method: 'POST',
+      body: { publicKey: publicKeyBase64 },
+    });
+
+    const nonceBytes = decodeBase64(challengeRes.nonce);
+    const serverPublicKeyBytes = decodeBase64(challengeRes.serverPublicKey);
+    const sharedSecret = nacl.scalarMult(
+      privateKeyBytes,
+      serverPublicKeyBytes
+    );
+
+    const message = new Uint8Array(nonceBytes.length + sharedSecret.length);
+    message.set(nonceBytes);
+    message.set(sharedSecret, nonceBytes.length);
+    const signature = nacl.hash(message);
+
+    await $fetch('/api/dashboard/login/verify', {
+      method: 'POST',
+      body: {
+        challengeId: challengeRes.challengeId,
+        signature: encodeBase64(signature),
+      },
+    });
+
+    await navigateTo('/dashboard');
+  } catch (e) {
+    const fetchError = e as { data?: { message?: string } };
+    const toast = useToast();
+    toast.showToast({
+      type: 'error',
+      message: fetchError.data?.message || t('toast.unknown'),
+    });
+  } finally {
+    authenticating.value = false;
+  }
 }
 
 useHead({

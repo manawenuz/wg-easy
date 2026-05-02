@@ -185,6 +185,7 @@
   },
   "active": "c314a8074f2d3392",
   "lastOpenFiles": [
+    "handoff/quartz-publishing.md",
     "prds/00-foundation/03-auth-refactor.md",
     "prds/00-foundation/02-multi-admin-rbac.md",
     "prds/00-foundation/01-backend-abstraction.md",
@@ -214,7 +215,6 @@
     "prds/20-user-features",
     "prds/10-mikrotik/02-mikrotik-autoconfig.md",
     "prds/10-mikrotik/01-mikrotik-driver.md",
-    "prds/10-mikrotik",
-    "handoff/kimi-prompt-template.md"
+    "prds/10-mikrotik"
   ]
 }
