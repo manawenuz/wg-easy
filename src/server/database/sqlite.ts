@@ -22,6 +22,7 @@ import { AdminRouterAclService } from './repositories/adminRouterAcl/service';
 import { ExitNodeService } from './repositories/exitNode/service';
 import { RoutePolicyService } from './repositories/routePolicy/service';
 import { ApiTokenService } from './repositories/apiToken/service';
+import { WgObfuscatorConfigService } from './repositories/wgObfuscatorConfig/service';
 
 const DB_DEBUG = debug('Database');
 
@@ -63,6 +64,7 @@ class DBService {
   exitNodes: ExitNodeService;
   routePolicies: RoutePolicyService;
   apiTokens: ApiTokenService;
+  wgObfuscatorConfigs: WgObfuscatorConfigService;
 
   constructor(db: DBType) {
     this.clients = new ClientService(db);
@@ -81,6 +83,7 @@ class DBService {
     this.exitNodes = new ExitNodeService(db);
     this.routePolicies = new RoutePolicyService(db);
     this.apiTokens = new ApiTokenService(db);
+    this.wgObfuscatorConfigs = new WgObfuscatorConfigService(db);
   }
 }
 

@@ -75,6 +75,7 @@
               <th class="px-4 py-3">{{ t('admin.interface.device') }}</th>
               <th class="px-4 py-3">{{ t('general.port') }}</th>
               <th class="px-4 py-3">{{ t('admin.routers.status') }}</th>
+              <th class="px-4 py-3">{{ t('form.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -95,6 +96,14 @@
                 >
                   {{ iface.enabled ? t('admin.routers.enabled') : t('admin.routers.disabled') }}
                 </span>
+              </td>
+              <td class="px-4 py-3">
+                <InterfacesObfuscationForm
+                  v-if="iface.engineType === 'mikrotik'"
+                  :interface-name="iface.name"
+                  :router-id="id"
+                  @saved="refreshInterfaces"
+                />
               </td>
             </tr>
           </tbody>
@@ -124,6 +133,7 @@ interface InterfaceItem {
   name: string;
   port: number;
   enabled: boolean;
+  engineType: string;
 }
 
 const { data: routerList, refresh: refreshRouter } = await useFetch<RouterItem[]>(
@@ -137,7 +147,7 @@ const routerData = computed(() => {
   return routerList.value.find((r) => r.id === id) ?? null;
 });
 
-const { data: interfaces } = await useFetch<InterfaceItem[]>(
+const { data: interfaces, refresh: refreshInterfaces } = await useFetch<InterfaceItem[]>(
   `/api/admin/interfaces`,
   { method: 'get', query: { routerId: id } }
 );

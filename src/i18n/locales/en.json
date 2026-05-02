@@ -269,6 +269,20 @@
       "stepTestApi": "Test API",
       "stepDone": "Complete"
     },
+    "obfuscation": {
+      "title": "Obfuscation",
+      "description": "Configure wg-obfuscator for interface {iface}",
+      "enabled": "Enable Obfuscation",
+      "advanced": "Advanced Parameters",
+      "listenPort": "Listen Port",
+      "listenPortDesc": "Public UDP port for the obfuscator",
+      "wgTargetPort": "WG Target Port",
+      "wgTargetPortDesc": "Local WireGuard port to forward to",
+      "key": "Obfuscation Key",
+      "keyDesc": "Shared secret between client and server obfuscators",
+      "dummyPaddingMin": "Min Dummy Padding",
+      "dummyPaddingMax": "Max Dummy Padding"
+    },
     "auditLog": {
       "title": "Audit Log",
       "ts": "Timestamp",

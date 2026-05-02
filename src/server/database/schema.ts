@@ -15,3 +15,4 @@ export * from './repositories/adminRouterAcl/schema';
 export * from './repositories/exitNode/schema';
 export * from './repositories/routePolicy/schema';
 export * from './repositories/apiToken/schema';
+export * from './repositories/wgObfuscatorConfig/schema';

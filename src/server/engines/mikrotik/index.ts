@@ -14,6 +14,13 @@ import { configgen } from './configgen';
 import { speedlimit } from './speedlimit';
 import { usage } from './usage';
 import { bootstrap as runBootstrap, type BootstrapOptions, type ProgressEvent } from './bootstrap';
+import {
+  deployObfuscator,
+  removeObfuscator,
+  generateClientObfuscatorConfig,
+  type DeployOptions,
+  type ObfuscatorConfig,
+} from './obfuscator';
 import type { InterfaceType } from '#db/repositories/interface/types';
 import type { RouterType } from '#db/repositories/router/types';
 
@@ -282,6 +289,26 @@ export class MikrotikEngine implements VpnEngine {
       return undefined;
     }
     return result as unknown as Client;
+  }
+
+  async deployObfuscator(
+    iface: InterfaceType,
+    opts: DeployOptions
+  ): Promise<ObfuscatorConfig> {
+    const router = await this.#requireRouter(iface);
+    return deployObfuscator(router, opts);
+  }
+
+  async removeObfuscator(iface: InterfaceType): Promise<void> {
+    const router = await this.#requireRouter(iface);
+    return removeObfuscator(router);
+  }
+
+  generateClientObfuscatorConfig(
+    routerHost: string,
+    obfuscatorConfig: ObfuscatorConfig
+  ): string {
+    return generateClientObfuscatorConfig(routerHost, obfuscatorConfig);
   }
 
   async bootstrap(
