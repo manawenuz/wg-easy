@@ -7,14 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Fork: Multi-Engine Control Plane
+
+#### Phase 0 — Foundation (`b1071fc`)
+
+Replaced the monolithic `WireGuard.ts` utility with a proper `VpnEngine` abstraction layer, enabling the application to manage VPN tunnels across different hardware and OS environments.
+
+- **Engine Abstraction (`VpnEngine` interface):** Define a common contract (`bringUp`, `bringDown`, `createPeer`, `syncInterface`, `sampleUsage`, `applySpeedLimit`, etc.) implemented by each engine
+- **Engine Registry:** `registry.ts` maps `EngineType` strings to concrete engine instances, resolved per-interface at runtime
+- **Transport Layer:** Separate communication protocols from engine logic — `LocalShellTransport` (WireGuard/AmneziaWG/BoringTun), `SshTransport` (remote hosts), `RouterOsApiTransport` (MikroTik)
+- **Multi-Admin RBAC:** Five roles (SUPERADMIN, ADMIN, OPERATOR, VIEWER, CLIENT) with a permission matrix (`permissions.ts`) enforced via `definePermissionEventHandler` wrapper. Automatic promotion of sole admin to SUPERADMIN
+- **Auth Refactor:** Principal resolution middleware (`server/middleware/principal.ts`) supporting session cookies, HTTP Basic auth, and Bearer API tokens. Principal cached on `event.context` per-request
+- **Database Expansion:** New tables for `audit_logs`, `api_tokens`, `routers`, `quotas`, `speed_limits`, `usage_samples`, `exit_nodes`, `route_policies`, `admin_router_acls`, `user_configs`, `wg_obfuscator_configs`
+- **Repository Pattern:** Each DB entity has `schema.ts` (Drizzle table + relations), `types.ts` (TypeScript types + Zod validation), `service.ts` (prepared statements), aggregated via `DBService`
+- **Audit Logging:** All state-changing actions logged with actor ID and timestamp
+- **WireGuard Engine:** First `VpnEngine` implementation, extracting all logic from deleted `WireGuard.ts` into `engines/wireguard/`. Includes `configgen.ts` for `.conf` file generation
+- **Admin User Management:** CRUD pages for users at `/admin/users`, role assignment, enable/disable
+
+#### Phase 1 — User Features
+
+- **PRD-20-01 — User Dashboard (`b9903ed` onward):** Dedicated self-service view at `/dashboard` for VPN clients. Read-only access to their own clients, usage statistics, and expiry dates. Layout at `app/layouts/dashboard.vue`, store at `app/stores/dashboard.ts`
+- **PRD-20-02 — QR Key Login (`b9903ed`):** Passwordless authentication for the user dashboard. Users scan their WireGuard QR code or paste their config; the server verifies ownership of the private key via a Curve25519 ECDH + SHA-512 challenge-response (`server/utils/wgKeyAuth.ts`). Private keys never leave the client device. Components: `Dashboard/QrLogin.vue`, `Dashboard/PasteConfigLogin.vue`
+- **PRD-20-03 — Bandwidth Quotas (`61564a4`):** Per-client data caps (daily, weekly, monthly). Scheduler background jobs poll usage every 60s, evaluate quotas, and auto-disable clients that exceed their limit. Period resetter handles automatic quota renewal. Components: `Clients/QuotaForm.vue`, `Clients/QuotaProgress.vue`, `Clients/QuotaProgressBar.vue`. Services: `server/services/quotaService.ts`, `server/scheduler/usagePoller.ts`, `server/scheduler/quotaEvaluator.ts`, `server/scheduler/periodResetter.ts`, `server/scheduler/usageRollup.ts`
+- **PRD-20-04 — Speed Limits (`95a9a8f`):** Per-client rate limiting (KB/s up/down). Linux implementation uses `tc` with HTB qdiscs and IFB redirection for bi-directional shaping (requires `modprobe ifb`). Components: `Clients/SpeedLimitForm.vue`. Service: `server/services/speedLimitService.ts`. Engine integration: `engines/wireguard/speedlimit.ts`
+
+#### Phase 2 — MikroTik Integration
+
+- **PRD-10-01 — MikroTik Driver Engine (`f824ac2`):** Full `VpnEngine` implementation for remote MikroTik routers. Uses `RouterOsApiTransport` (steady-state management via native RouterOS API) and `SshTransport` (bootstrap/low-level operations). Router CRUD at `/admin/routers`. Router credentials encrypted at rest with AES-256-GCM (`server/utils/crypto.ts`). Implements peer management, config generation (`configgen.ts`), speed limits via RouterOS `queue tree` + `mangle` rules, and usage sampling
+- **PRD-10-02 — Bootstrap Wizard (`fd51db4`):** Zero-touch provisioning of a "vanilla" MikroTik router. 4-step automated sequence via SSH: (1) create WireGuard interface, (2) assign IP addresses, (3) configure NAT/masquerade, (4) create API user. Component: `Routers/BootstrapWizard.vue`, logic: `engines/mikrotik/bootstrap.ts`
+- **PRD-10-03 — wg-obfuscator Sidecar (`facfde5`):** Automatic deployment of `wg-obfuscator` containers on RouterOS for DPI evasion. Per-interface obfuscation configuration stored in `wg_obfuscator_configs` table. Component: `Interfaces/ObfuscationForm.vue`, logic: `engines/mikrotik/obfuscator.ts`. **Note: client config generation for obfuscation is not yet wired into the download routes**
+
+#### Phase 3 — Multi-Engine Support
+
+- **PRD-30-01 — AmneziaWG Engine (`d7b1338`):** Promoted from experimental flag to first-class runtime engine. Uses `awg`/`awg-quick` when native tools are available; transparently falls back to `amneziawg-go` userspace implementation (bundled in Docker image). Auto-generates obfuscation parameters (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5) for client configs. Config generation at `engines/amneziawg/configgen.ts`. Docker fallback: if `awg` is missing on host, runs commands via transient Docker container
+- **PRD-30-02 — BoringTun Engine (`7b4e711`):** Userspace WireGuard implementation via Cloudflare's `boringtun-cli` (Rust, built in Dockerfile). Process manager (`engines/boringtun/process.ts`) handles the long-running daemon lifecycle with UAPI socket communication. Workaround for BoringTun's single-peer-set UAPI bug: uses `wg setconf` for peer sync. Built from source in Docker multi-stage build
+- **PRD-30-03 — Engine Selection UX (`5c72363`):** Admin interface for selecting VPN engine per interface. Shows capability hints (obfuscation support, speed limit method, live stats availability, multi-peer sync). Engine metadata API at `/api/admin/engines`. Components: `Interfaces/EngineSelector.vue`, `Interfaces/EngineCapabilityHints.vue`
+
+#### Final Integration & Bug Fixes (`b8f2410`)
+
+- **Config Generation Fix:** All client config download routes now use engine-aware config generation (was hardcoded to WireGuard). Affected routes: `/api/client/:id/configuration`, `/api/dashboard/clients/:id/configuration`, `/api/client/:id/qrcode.svg`, `/api/dashboard/clients/:id/qrcode.svg`, `/cnf/:oneTimeLink`. Removed hardcoded configgen from `wgHelper.ts`
+- **Auth Hardening:** Fixed SSR auth middleware for dashboard routes, fixed principal resolution for per-user client ownership, fixed session handling for token-based auth. Dashboard users always get effective `CLIENT` role to prevent privilege escalation
+- **Dashboard Fixes:** Fixed QR code route params (`[id]` → `[clientId]`), fixed usage graph delta computation, fixed dashboard logout, added missing i18n keys across all locales
+- **SSH Passphrase Support:** `SshTransport` now supports encrypted, passphrase-protected SSH private keys for MikroTik management
+- **Traffic Shaping Infrastructure:** Added `init-ifb.sh` for IFB kernel module setup (required for upload speed limiting). Bi-directional shaping requires Linux with `ifb` module; Docker-on-macOS/Windows only supports download shaping
+- **Docker Updates:** Multi-stage build now includes `boringtun-cli` (Rust), `amneziawg-go` + `amneziawg-tools` (Go). Updated `Dockerfile.dev` for development workflow
+- **Test Suite:** ~165 unit tests covering crypto, engine logic, API controllers, scheduler, services, middleware, and composables. E2E integration tests for WireGuard and MikroTik engines
+
+#### Known Gaps
+
+- **MikroTik engine is untested with live hardware** — unit tests and logic review pass, but no end-to-end verification against a real RouterOS device
+- **MikroTik TLS fingerprint pinning (TOFU)** is not implemented; connects to any TLS-enabled RouterOS API without certificate verification
+- **MikroTik obfuscation** `generateClientObfuscatorConfig()` is implemented in the engine but not wired into client config download routes
+- **i18n** — many dashboard and engine capability keys are missing from non-English locales
+- **Per-peer AmneziaWG parameter overrides** in the UI were punted; parameters are currently shared via interface-level defaults
+
+### Upstream
 
 - AWG: support for H1-H4 ranges (https://github.com/wg-easy/wg-easy/pull/2480)
 - Client Firewall (https://github.com/wg-easy/wg-easy/pull/2418)
 - CLI: Show QR code (https://github.com/wg-easy/wg-easy/pull/2518)
 - Copy QR code to clipboard / save as png (https://github.com/wg-easy/wg-easy/pull/2521)
 
-### Changed
+### Changed (Upstream)
 
 - Hooks are now Textareas (https://github.com/wg-easy/wg-easy/pull/2522)
 - Update to Node Krypton (24) (https://github.com/wg-easy/wg-easy/pull/2536)
