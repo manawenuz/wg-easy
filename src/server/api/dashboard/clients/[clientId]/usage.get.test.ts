@@ -16,15 +16,15 @@ describe('dashboard/usage.get', () => {
   });
 
   type Handler = (event: {
-    context: { principal: { kind: string; user: ReturnType<typeof mockUser> } };
+    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number } };
     _query: Record<string, string>;
-    _params: { id: string };
+    _params: { clientId: string };
   }) => Promise<unknown>;
 
   const makeEvent = (
-    principal: { kind: string; user: ReturnType<typeof mockUser> },
+    principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number },
     query: Record<string, string>,
-    params: { id: string }
+    params: { clientId: string }
   ) =>
     ({ context: { principal }, _query: query, _params: params }) as Parameters<Handler>[0];
 
@@ -55,12 +55,14 @@ describe('dashboard/usage.get', () => {
       usageSamples: {
         getByClientId: vi.fn(async (clientId: number) => {
           if (clientId !== 1) return [];
-          const now = Date.now();
-          const fiveMin = 5 * 60 * 1000;
+          // Use a fixed base aligned to a 5-minute bucket boundary so the
+          // two inner samples always land in the same bucket.
+          const bucketMs = 5 * 60 * 1000;
+          const base = Math.floor(Date.now() / bucketMs) * bucketMs;
           return [
-            { clientId: 1, rxBytes: 100, txBytes: 200, ts: new Date(now - fiveMin) },
-            { clientId: 1, rxBytes: 150, txBytes: 250, ts: new Date(now - fiveMin + 60000) },
-            { clientId: 1, rxBytes: 200, txBytes: 300, ts: new Date(now - 2 * fiveMin) },
+            { clientId: 1, rxBytes: 100, txBytes: 200, ts: new Date(base - 4 * 60 * 1000) },
+            { clientId: 1, rxBytes: 150, txBytes: 250, ts: new Date(base - 3 * 60 * 1000) },
+            { clientId: 1, rxBytes: 200, txBytes: 300, ts: new Date(base - bucketMs - 4 * 60 * 1000) },
           ];
         }),
       },
@@ -70,9 +72,9 @@ describe('dashboard/usage.get', () => {
   it('returns correctly bucketed data for 24h range', async () => {
     const usageHandler = (await import('./usage.get')).default as Handler;
     const event = makeEvent(
-      { kind: 'user', user: mockUser(1, 2) },
+      { kind: 'user', user: mockUser(1, 2), clientId: 1 },
       { range: '24h' },
-      { id: '1' }
+      { clientId: '1' }
     );
 
     const result = (await usageHandler(event)) as {
@@ -82,20 +84,20 @@ describe('dashboard/usage.get', () => {
     expect(result.buckets).toBeInstanceOf(Array);
     expect(result.buckets.length).toBeGreaterThan(0);
 
-    // Two samples within the same 5-min bucket should be aggregated
+    // Two samples within the same 5-min bucket should be aggregated as deltas
     const latestBucket = result.buckets[result.buckets.length - 1];
-    expect(latestBucket!.rxBytes).toBe(250); // 100 + 150
-    expect(latestBucket!.txBytes).toBe(450); // 200 + 250
+    expect(latestBucket!.rxBytes).toBe(50); // 150 - 100
+    expect(latestBucket!.txBytes).toBe(50); // 250 - 200
   });
 
-  it('returns 404 for client belonging to another user', async () => {
+  it('returns 403 for client not bound to session', async () => {
     const usageHandler = (await import('./usage.get')).default as Handler;
     const event = makeEvent(
-      { kind: 'user', user: mockUser(2, 2) },
+      { kind: 'user', user: mockUser(2, 2), clientId: 2 },
       { range: '24h' },
-      { id: '1' }
+      { clientId: '1' }
     );
 
-    await expect(usageHandler(event)).rejects.toThrow('Client not found');
+    await expect(usageHandler(event)).rejects.toThrow('Forbidden');
   });
 });

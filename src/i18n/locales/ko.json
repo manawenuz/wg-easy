@@ -8,7 +8,8 @@
       "config": "구성",
       "interface": "인터페이스",
       "hooks": "후크"
-    }
+    },
+    "dashboard": "대시보드"
   },
   "user": {
     "email": "이메일"

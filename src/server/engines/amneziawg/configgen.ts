@@ -112,7 +112,11 @@ PostDown = ${iptablesTemplate(hooks.postDown, wgInterface)}`;
       client.postDown ? `PostDown = ${removeNewlines(client.postDown)}` : null,
     ];
 
-    const dnsServers = client.dns ?? userConfig.defaultDns;
+    const allDnsServers = client.dns ?? userConfig.defaultDns;
+    // Filter out IPv6 DNS when IPv6 is disabled to avoid resolution issues
+    const dnsServers = enableIpv6
+      ? allDnsServers
+      : allDnsServers.filter((ip: string) => !ip.includes(':'));
     const dnsLine =
       dnsServers.length > 0 ? `DNS = ${dnsServers.join(', ')}` : null;
 

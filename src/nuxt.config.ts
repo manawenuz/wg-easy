@@ -162,6 +162,7 @@ export default defineNuxtConfig({
     externals: {
       traceInclude: [fileURLToPath(new URL('./cli/index.ts', import.meta.url))],
     },
+    ignore: ['**/*.test.ts'],
   },
   alias: {
     // for typecheck reasons (https://github.com/nuxt/cli/issues/323)

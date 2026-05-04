@@ -6,7 +6,7 @@ import { getWGSession, getWGUserSession } from './session';
 
 export type Principal =
   | { kind: 'admin'; user: UserType }
-  | { kind: 'user'; user: UserType }
+  | { kind: 'user'; user: UserType; clientId: ID }
   | { kind: 'token'; user: UserType; tokenId: number; scopes: string[] };
 
 export async function resolvePrincipal(
@@ -46,10 +46,10 @@ export async function resolvePrincipal(
   // 4. User session cookie
   try {
     const userSession = await getWGUserSession(event);
-    if (userSession.data.userId) {
+    if (userSession.data.userId && userSession.data.clientId) {
       const user = await Database.users.get(userSession.data.userId);
       if (user && user.enabled) {
-        return { kind: 'user', user };
+        return { kind: 'user', user, clientId: userSession.data.clientId };
       }
     }
   } catch {

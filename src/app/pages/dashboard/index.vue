@@ -135,11 +135,19 @@
         <p class="mt-2 text-sm">{{ $t('dashboard.contactAdmin') }}</p>
       </div>
 
-      <div
-        v-else
-        class="p-5 text-gray-200 dark:text-red-300"
-      >
-        <IconsLoading class="mx-auto w-5 animate-spin" />
+      <!-- Loading skeleton -->
+      <div v-else class="divide-y divide-gray-100 dark:divide-neutral-600">
+        <div
+          v-for="n in 3"
+          :key="n"
+          class="flex animate-pulse items-center gap-3 px-3 py-3 md:py-5"
+        >
+          <div class="h-10 w-10 shrink-0 rounded-full bg-gray-200 dark:bg-neutral-600" />
+          <div class="flex w-full flex-col gap-2">
+            <div class="h-4 w-1/3 rounded bg-gray-200 dark:bg-neutral-600" />
+            <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-neutral-600" />
+          </div>
+        </div>
       </div>
     </Panel>
   </main>
@@ -150,8 +158,9 @@ import { format as timeago } from 'timeago.js';
 
 function formatKbps(kbps: number): string {
   if (kbps === 0) return 'Unlimited';
-  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
-  return `${kbps} KB/s`;
+  const kbytes = kbps / 8;
+  if (kbytes >= 1024) return `${(kbytes / 1024).toFixed(1)} MB/s (${kbps} kbps)`;
+  return `${kbytes.toFixed(1)} KB/s (${kbps} kbps)`;
 }
 
 const dashboardStore = useDashboardStore();

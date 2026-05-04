@@ -1,9 +1,11 @@
-import { writeFile } from 'node:fs/promises';
 import debug from 'debug';
 
 import { setIntervalImmediately } from '../../../shared/utils/time';
 import type { InterfaceType } from '#db/repositories/interface/types';
 import type { LocalShellTransport } from '../../transports/local-shell';
+import { SshTransport } from '../../transports/ssh';
+import { decrypt } from '../../utils/crypto';
+import type { RouterType } from '#db/repositories/router/types';
 import type {
   Client,
   EngineCapabilities,
@@ -18,8 +20,19 @@ import { configgen } from './configgen';
 
 const AWG_DEBUG = debug('AmneziaWG');
 
+interface Transport {
+  exec(cmd: string): Promise<{ stdout: string; stderr: string; code?: number | null }>;
+  writeFile(path: string, content: string, mode?: number): Promise<void>;
+}
+
+function dockerWrap(cmd: string): string {
+  const escaped = cmd.replace(/"/g, '\\"');
+  return `docker run --rm --cap-add=NET_ADMIN --network=host -v /etc/amnezia:/etc/amnezia -v /etc/wireguard:/etc/wireguard -v /lib/modules:/lib/modules ghcr.io/amnezia-vpn/amneziawg-tools sh -c "${escaped}"`;
+}
+
 export class AmneziaWgEngine implements VpnEngine {
   readonly id = 'amneziawg' as const;
+
   get capabilities(): EngineCapabilities {
     return {
       obfuscation: 'amneziawg-params',
@@ -30,15 +43,104 @@ export class AmneziaWgEngine implements VpnEngine {
   }
 
   #cronJobStarted = false;
+  #localTransport: LocalShellTransport;
+  #dockerMode = false;
+  #dockerChecked = false;
 
-  constructor(private readonly transport: LocalShellTransport) {}
+  constructor(transport: LocalShellTransport) {
+    this.#localTransport = transport;
+  }
+
+  async #getRouter(iface: InterfaceType): Promise<RouterType | undefined> {
+    if (typeof Database === 'undefined') {
+      return undefined;
+    }
+    if (iface.routerId === 0) {
+      return Database.routers.get(0);
+    }
+    return Database.routers.get(iface.routerId);
+  }
+
+  async #requireRouter(iface: InterfaceType): Promise<RouterType> {
+    const router = await this.#getRouter(iface);
+    if (!router) {
+      throw new Error(`Router not found for interface ${iface.name}`);
+    }
+    return router;
+  }
+
+  #parseCredentials(router: RouterType): Record<string, string> | undefined {
+    if (!router.credentialsEncrypted) {
+      return undefined;
+    }
+    try {
+      const decrypted = decrypt(router.credentialsEncrypted);
+      return JSON.parse(decrypted) as Record<string, string>;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async #getTransport(iface: InterfaceType): Promise<Transport> {
+    const router = await this.#getRouter(iface);
+    if (!router || router.id === 0) {
+      return this.#localTransport;
+    }
+
+    const creds = this.#parseCredentials(router);
+    if (!creds) {
+      return this.#localTransport;
+    }
+
+    const auth = creds.sshKey
+      ? { type: 'key' as const, privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8'), passphrase: router.sshPassphraseEncrypted ? decrypt(router.sshPassphraseEncrypted) : undefined }
+      : { type: 'password' as const, password: creds.apiPassword || '' };
+
+    return new SshTransport({
+      host: router.host ?? 'localhost',
+      port: router.port ?? undefined,
+      user: creds.sshUser ?? creds.apiUser ?? 'root',
+      auth,
+    });
+  }
+
+  async #exec(iface: InterfaceType, cmd: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
+    const transport = await this.#getTransport(iface);
+
+    // Detect docker fallback once per engine lifetime (only for awg/awg-quick commands)
+    if (!this.#dockerChecked && (cmd.startsWith('awg') || cmd.startsWith('awg-quick'))) {
+      this.#dockerChecked = true;
+      try {
+        await transport.exec('which awg');
+        this.#dockerMode = false;
+      } catch {
+        try {
+          await transport.exec('which docker');
+          this.#dockerMode = true;
+          AWG_DEBUG('awg binary not found; enabling Docker command wrapping');
+        } catch {
+          this.#dockerMode = false;
+        }
+      }
+    }
+
+    const wrapped = this.#dockerMode && (cmd.startsWith('awg') || cmd.startsWith('awg-quick'))
+      ? dockerWrap(cmd)
+      : cmd;
+
+    return transport.exec(wrapped) as Promise<{ stdout: string; stderr: string; code: number | null }>;
+  }
 
   async healthCheck(iface: InterfaceType): Promise<Health> {
     try {
-      await this.transport.exec(`ip link show ${iface.name}`);
-      return { ok: true };
-    } catch {
+      const { stdout } = await this.#exec(iface, `ip link show ${iface.name}`);
+      if (stdout.includes(iface.name)) {
+        return { ok: true };
+      }
       return { ok: false, details: `Interface ${iface.name} is not up` };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, details: message };
     }
   }
 
@@ -80,9 +182,21 @@ export class AmneziaWgEngine implements VpnEngine {
     const hooks = await Database.hooks.get();
 
     await this.#writeConfig(wgInterface, clients, hooks);
-    await this.transport.exec(`awg-quick down ${wgInterface.name}`).catch(() => {});
-    await this.transport.exec(`awg-quick up ${wgInterface.name}`).catch((err) => {
+    await this.#exec(wgInterface, `awg-quick down ${wgInterface.name}`).catch(() => {});
+
+    const userspaceFallback = process.env.WG_QUICK_USERSPACE_IMPLEMENTATION || process.env.WG_I_PREFER_USERSPACE_TO_KERNEL;
+
+    await this.#exec(wgInterface, `awg-quick up ${wgInterface.name}`).catch((err) => {
       if (err?.message?.includes(`Cannot find device "${wgInterface.name}"`)) {
+        if (userspaceFallback) {
+          console.warn(
+            `AmneziaWG kernel module is not available for interface "${wgInterface.name}". ` +
+            `Falling back to userspace implementation (${process.env.WG_QUICK_USERSPACE_IMPLEMENTATION || 'wireguard-go'}). ` +
+            `Performance may be reduced compared to native kernel mode.`
+          );
+          // Do not throw; userspace fallback may succeed on retry
+          return;
+        }
         throw new Error(
           `AmneziaWG exited with the error: Cannot find device "${wgInterface.name}"\nThis usually means that your host's kernel does not support AmneziaWG!`,
           { cause: err.message }
@@ -90,7 +204,8 @@ export class AmneziaWgEngine implements VpnEngine {
       }
       throw err;
     });
-    await this.#sync(wgInterface.name);
+
+    await this.#sync(wgInterface);
     AWG_DEBUG(`AmneziaWG interface ${wgInterface.name} started successfully`);
 
     if (wgInterface.firewallEnabled) {
@@ -128,13 +243,13 @@ export class AmneziaWgEngine implements VpnEngine {
   }
 
   async bringDown(iface: InterfaceType): Promise<void> {
-    await this.transport.exec(`awg-quick down ${iface.name}`).catch(() => {});
+    await this.#exec(iface, `awg-quick down ${iface.name}`).catch(() => {});
   }
 
   async syncInterface(iface: InterfaceType, peers: Client[]): Promise<void> {
     const hooks = await Database.hooks.get();
     await this.#writeConfig(iface, peers, hooks);
-    await this.#sync(iface.name);
+    await this.#sync(iface);
     await this.#applyFirewall(iface);
   }
 
@@ -164,9 +279,7 @@ export class AmneziaWgEngine implements VpnEngine {
   }
 
   async sampleUsage(iface: InterfaceType): Promise<UsageSample[]> {
-    const rawDump = await this.transport.exec(
-      `awg show ${iface.name} dump`
-    );
+    const rawDump = await this.#exec(iface, `awg show ${iface.name} dump`);
     return parseWgDump(rawDump.stdout);
   }
 
@@ -182,7 +295,8 @@ export class AmneziaWgEngine implements VpnEngine {
       throw new Error(`Peer with public key ${peerPublicKey} not found`);
     }
 
-    await applySpeedLimit(this.transport, iface, peer, upKbps, downKbps);
+    const transport = await this.#getTransport(iface);
+    await applySpeedLimit(transport, iface, peer, upKbps, downKbps);
   }
 
   async clearSpeedLimit(iface: InterfaceType, peerPublicKey: string): Promise<void> {
@@ -192,7 +306,8 @@ export class AmneziaWgEngine implements VpnEngine {
       return;
     }
 
-    await clearSpeedLimit(this.transport, iface, peer);
+    const transport = await this.#getTransport(iface);
+    await clearSpeedLimit(transport, iface, peer);
   }
 
   async #writeConfig(
@@ -221,21 +336,20 @@ export class AmneziaWgEngine implements VpnEngine {
     result.push('');
 
     AWG_DEBUG('Saving config');
-    await writeFile(
-      `/etc/wireguard/${iface.name}.conf`,
-      result.join('\n\n'),
-      {
-        mode: 0o600,
-      }
+    const configDir = process.env.WG_CONFIG_DIR || '/etc/wireguard';
+    const content = result.join('\n\n');
+    const transport = await this.#getTransport(iface);
+    await transport.writeFile(
+      `${configDir}/${iface.name}.conf`,
+      content,
+      0o600
     );
     AWG_DEBUG('Config saved successfully');
   }
 
-  async #sync(ifaceName: string): Promise<void> {
+  async #sync(iface: InterfaceType): Promise<void> {
     AWG_DEBUG('Syncing config');
-    await this.transport.exec(
-      `awg syncconf ${ifaceName} <(awg-quick strip ${ifaceName})`
-    );
+    await this.#exec(iface, `awg syncconf ${iface.name} <(awg-quick strip ${iface.name})`);
     AWG_DEBUG('Config synced successfully');
   }
 
@@ -253,7 +367,8 @@ export class AmneziaWgEngine implements VpnEngine {
       const peer = clients.find((c) => c.id === sl.clientId);
       if (!peer || !peer.enabled) continue;
       try {
-        await applySpeedLimit(this.transport, iface, peer, sl.upKbps, sl.downKbps);
+        const transport = await this.#getTransport(iface);
+        await applySpeedLimit(transport, iface, peer, sl.upKbps, sl.downKbps);
       } catch (err) {
         AWG_DEBUG(`Failed to reapply speed limit for client ${sl.clientId}:`, err);
       }

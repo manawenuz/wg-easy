@@ -88,6 +88,7 @@ ENV HOST=0.0.0.0
 ENV INSECURE=false
 ENV INIT_ENABLED=false
 ENV DISABLE_IPV6=false
+# Note: Userspace implementation env vars should be set at runtime, not baked into image
 
 LABEL org.opencontainers.image.source=https://github.com/wg-easy/wg-easy
 

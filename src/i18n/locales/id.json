@@ -2,6 +2,7 @@
   "pages": {
     "me": "Akun",
     "clients": "Klien",
+    "dashboard": "Dasbor",
     "admin": {
       "panel": "Panel Admin",
       "general": "General",

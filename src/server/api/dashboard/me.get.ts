@@ -11,16 +11,21 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Forbidden',
     });
   }
-  const user = principal.user;
 
-  const clients = await Database.clients.getForUser(user.id);
+  const client = await Database.clients.get(principal.clientId);
+  if (!client) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Client not found',
+    });
+  }
 
   return {
     user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
+      id: client.id,
+      name: client.name,
+      email: principal.user.email,
     } satisfies Pick<SharedPublicUser, 'id' | 'name' | 'email'>,
-    clientsCount: clients.length,
+    clientsCount: 1,
   };
 });

@@ -8,7 +8,8 @@
       "config": "Cấu hình",
       "interface": "Giao diện mạng",
       "hooks": "Hooks"
-    }
+    },
+    "dashboard": "Bảng điều khiển"
   },
   "user": {
     "email": "E-Mail"

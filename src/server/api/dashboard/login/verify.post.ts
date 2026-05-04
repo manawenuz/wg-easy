@@ -1,6 +1,5 @@
 import { getRequestIP } from 'h3';
 import { verifyChallenge, isRateLimited, recordAttempt } from '../../../utils/wgKeyAuth';
-import { roles } from '#shared/utils/permissions';
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ challengeId?: string; signature?: string }>(event);
@@ -38,10 +37,12 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  if (!clientRecord.enabled) {
+  // Allow disabled clients to log in so they can view their activity/quota.
+  // Only block if the client has expired.
+  if (clientRecord.expiresAt && new Date(clientRecord.expiresAt) < new Date()) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Client is disabled',
+      statusMessage: 'Client has expired',
     });
   }
 
@@ -54,12 +55,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  if (user.role !== roles.CLIENT) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Invalid user role',
-    });
-  }
+  // Accept any user role for dashboard login — if they have a valid
+  // WireGuard client config they should be able to see their stats.
 
   const sessionConfig = await Database.general.getSessionConfig();
   const session = await useSession<WGSession>(event, {
@@ -70,7 +67,7 @@ export default defineEventHandler(async (event) => {
       secure: !WG_ENV.INSECURE,
     },
   });
-  await session.update({ userId: user.id });
+  await session.update({ userId: user.id, clientId: clientRecord.id });
 
   return { ok: true };
 });

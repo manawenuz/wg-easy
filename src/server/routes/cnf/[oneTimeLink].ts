@@ -1,5 +1,13 @@
 import { OneTimeLinkGetSchema } from '#db/repositories/oneTimeLink/types';
-import { configgen } from '../../engines/wireguard/configgen';
+import { configgen as wireguardConfiggen } from '../../engines/wireguard/configgen';
+import { configgen as amneziawgConfiggen } from '../../engines/amneziawg/configgen';
+
+function getConfiggen(engineType: string) {
+  if (engineType === 'amneziawg') {
+    return amneziawgConfiggen;
+  }
+  return wireguardConfiggen;
+}
 
 export default defineEventHandler(async (event) => {
   const { oneTimeLink } = await getValidatedRouterParams(
@@ -25,6 +33,7 @@ export default defineEventHandler(async (event) => {
 
   const wgInterface = await Database.interfaces.get();
   const userConfig = await Database.userConfigs.get();
+  const configgen = getConfiggen(wgInterface.engineType);
 
   const config = configgen.generateClientConfig(
     wgInterface,

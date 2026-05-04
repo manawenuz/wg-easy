@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const clientId = Number(getRouterParam(event, 'id'));
+  const clientId = Number(getRouterParam(event, 'clientId'));
 
   if (Number.isNaN(clientId)) {
     throw createError({
@@ -26,10 +26,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = await Database.clients.get(clientId);
-  if (!client || client.userId !== principal.user.id) {
+  if (!client || client.id !== principal.clientId) {
     throw createError({
-      statusCode: 404,
-      statusMessage: 'Client not found',
+      statusCode: 403,
+      statusMessage: 'Forbidden',
     });
   }
 
@@ -55,27 +55,43 @@ export default defineEventHandler(async (event) => {
   const startTs = new Date(now - lookbackMs);
 
   const allSamples = await Database.usageSamples.getByClientId(clientId);
-  const filteredSamples = allSamples.filter(
-    (s) => s.ts && new Date(s.ts).getTime() >= startTs.getTime()
-  );
+  const filteredSamples = allSamples
+    .filter((s) => s.ts && new Date(s.ts).getTime() >= startTs.getTime())
+    .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
+  // Compute deltas from cumulative counters
+  const deltas: { ts: number; rxBytes: number; txBytes: number }[] = [];
+  for (let i = 1; i < filteredSamples.length; i++) {
+    const curr = filteredSamples[i]!;
+    const prev = filteredSamples[i - 1]!;
+    const rxDelta = Math.max(0, Number(curr.rxBytes) - Number(prev.rxBytes));
+    const txDelta = Math.max(0, Number(curr.txBytes) - Number(prev.txBytes));
+    if (rxDelta > 0 || txDelta > 0) {
+      deltas.push({
+        ts: new Date(curr.ts).getTime(),
+        rxBytes: rxDelta,
+        txBytes: txDelta,
+      });
+    }
+  }
+
+  // Bucket the deltas
   const buckets = new Map<
     number,
     { ts: number; rxBytes: number; txBytes: number }
   >();
 
-  for (const sample of filteredSamples) {
-    const tsMs = new Date(sample.ts).getTime();
-    const bucketTs = Math.floor(tsMs / bucketMs) * bucketMs;
+  for (const delta of deltas) {
+    const bucketTs = Math.floor(delta.ts / bucketMs) * bucketMs;
     const existing = buckets.get(bucketTs);
     if (existing) {
-      existing.rxBytes += Number(sample.rxBytes);
-      existing.txBytes += Number(sample.txBytes);
+      existing.rxBytes += delta.rxBytes;
+      existing.txBytes += delta.txBytes;
     } else {
       buckets.set(bucketTs, {
         ts: bucketTs,
-        rxBytes: Number(sample.rxBytes),
-        txBytes: Number(sample.txBytes),
+        rxBytes: delta.rxBytes,
+        txBytes: delta.txBytes,
       });
     }
   }

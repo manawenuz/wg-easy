@@ -1,8 +1,17 @@
 ---
 title: Orchestration handoff — resume here
 type: handoff
-last_updated: 2026-05-02
+last_updated: 2026-05-04
 ---
+
+> **2026-05-04 update**: First test deployment to `178.105.64.108` exposed five production bugs (one security-critical). Bugfix PRDs are in `prds/60-bugfixes/`:
+> - `01-dashboard-i18n-key` — missing `pages.dashboard` translation
+> - `02-dashboard-privilege-escalation` — **security-critical**, dashboard session inherits admin role
+> - `03-dashboard-logout-broken` — `DELETE /api/session` clears wrong cookie
+> - `04-dns-stub-resolver` — embed dnsmasq on 10.8.0.1 to fix macOS DNS handover
+> - `05-per-user-client-ownership` — multi-tenant follow-up to #02
+>
+> Implementation order: 02 → 03 → 01 (P0 burst, all small) → 04 (touches Dockerfile + schema) → 05 (depends on 02). Hand each to Kimi via `scripts/assemble-kimi-prompt.sh 60 <N>`.
 
 # Orchestration handoff
 

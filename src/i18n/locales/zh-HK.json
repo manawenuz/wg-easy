@@ -2,6 +2,7 @@
   "pages": {
     "me": "帳戶",
     "clients": "客戶端",
+    "dashboard": "儀表板",
     "admin": {
       "panel": "管理員版面",
       "general": "一般設定",

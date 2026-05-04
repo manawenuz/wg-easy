@@ -138,7 +138,7 @@ describe('resolvePrincipal', () => {
     vi.mocked(getHeader).mockReturnValue(undefined);
     vi.mocked(getWGSession).mockRejectedValue(new Error('no session'));
     vi.mocked(getWGUserSession).mockResolvedValue({
-      data: { userId: 1 },
+      data: { userId: 1, clientId: 10 },
       id: 'sess2',
       update: vi.fn(),
       clear: vi.fn(),
@@ -152,5 +152,24 @@ describe('resolvePrincipal', () => {
     expect(result).not.toBeNull();
     expect(result!.kind).toBe('user');
     expect(result!.user.id).toBe(mockUser.id);
+    expect((result as any).clientId).toBe(10);
+  });
+
+  it('returns null for wg-user-session without clientId', async () => {
+    vi.mocked(getHeader).mockReturnValue(undefined);
+    vi.mocked(getWGSession).mockRejectedValue(new Error('no session'));
+    vi.mocked(getWGUserSession).mockResolvedValue({
+      data: { userId: 1 },
+      id: 'sess2',
+      update: vi.fn(),
+      clear: vi.fn(),
+    } as any);
+
+    const event = { headers: {} } as unknown as Parameters<
+      typeof resolvePrincipal
+    >[0];
+    const result = await resolvePrincipal(event);
+
+    expect(result).toBeNull();
   });
 });

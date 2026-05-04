@@ -18,14 +18,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
   if (event) {
-    // Server-side: resolve principal from the request event
-    const principal = await resolvePrincipal(event);
+    // Server-side: principal was resolved by Nitro server middleware
+    const principal = event.context.principal;
     if (principal) {
-      event.context.principal = principal;
       authStore.principal = principal;
+      // Dashboard user sessions have an effective role of CLIENT regardless of
+      // the underlying user record's role. This prevents privilege escalation
+      // when a client config is owned by an admin user.
+      const effectiveRole = principal.kind === 'user' ? roles.CLIENT : principal.user.role;
       authStore.userData = {
         id: principal.user.id,
-        role: principal.user.role,
+        role: effectiveRole,
         username: principal.user.username,
         name: principal.user.name,
         email: principal.user.email,
@@ -69,10 +72,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/login', { redirectCode: 302 });
   }
 
-  // Check for admin access (any non-client role)
-  if (to.path.startsWith('/admin')) {
-    if (authStore.userData?.role === roles.CLIENT) {
-      return navigateTo('/dashboard?toast=no-permission', { redirectCode: 302 });
-    }
+  // Admin-only routes: root (/), /clients/*, /admin/*, /setup/*
+  const adminOnlyPaths = ['/', '/clients', '/setup'];
+  const isAdminOnly =
+    to.path.startsWith('/admin') ||
+    to.path.startsWith('/clients') ||
+    to.path === '/' ||
+    to.path.startsWith('/setup');
+
+  if (isAdminOnly && authStore.userData?.role === roles.CLIENT) {
+    return navigateTo('/dashboard?toast=no-permission', { redirectCode: 302 });
   }
 });

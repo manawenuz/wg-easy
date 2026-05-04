@@ -33,6 +33,37 @@ describe('wireguard/speedlimit', () => {
     expect(commands).toContain('tc class add dev ifb-wg0 parent 1:1 classid 1:2c htb rate 512kbit ceil 512kbit 2>/dev/null || tc class change dev ifb-wg0 parent 1:1 classid 1:2c htb rate 512kbit ceil 512kbit');
   });
 
+  it('applySpeedLimit skips egress shaping when downKbps is 0', async () => {
+    const { transport, commands } = mockTransport();
+
+    await applySpeedLimit(transport, mockIface, mockPeer, 512, 0);
+
+    expect(commands).toContain('tc qdisc add dev wg0 root handle 1: htb default 9999 2>/dev/null || true');
+    // Egress class/filter should NOT be present
+    expect(commands).not.toContain(
+      expect.stringContaining('tc class add dev wg0 parent 1:1 classid 1:2c')
+    );
+    expect(commands).not.toContain(
+      expect.stringContaining('tc filter add dev wg0 protocol ip parent 1: prio 1 u32 match ip dst')
+    );
+    // Ingress (upload) should still be set
+    expect(commands).toContain('tc filter add dev wg0 parent ffff: protocol ip u32 match ip src 10.8.0.5/32 action mirred egress redirect dev ifb-wg0 2>/dev/null || true');
+    expect(commands).toContain('tc class add dev ifb-wg0 parent 1:1 classid 1:2c htb rate 512kbit ceil 512kbit 2>/dev/null || tc class change dev ifb-wg0 parent 1:1 classid 1:2c htb rate 512kbit ceil 512kbit');
+  });
+
+  it('applySpeedLimit skips ingress shaping when upKbps is 0', async () => {
+    const { transport, commands } = mockTransport();
+
+    await applySpeedLimit(transport, mockIface, mockPeer, 0, 1024);
+
+    // Ingress redirect to IFB should NOT be added
+    expect(commands).not.toContain(
+      expect.stringContaining('tc filter add dev wg0 parent ffff: protocol ip u32 match ip src')
+    );
+    // Egress (download) should still be set
+    expect(commands).toContain('tc class add dev wg0 parent 1:1 classid 1:2c htb rate 1024kbit ceil 1024kbit 2>/dev/null || tc class change dev wg0 parent 1:1 classid 1:2c htb rate 1024kbit ceil 1024kbit');
+  });
+
   it('clearSpeedLimit sends expected cleanup commands', async () => {
     const { transport, commands } = mockTransport();
 

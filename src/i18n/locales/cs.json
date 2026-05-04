@@ -2,6 +2,7 @@
   "pages": {
     "me": "Účet",
     "clients": "Klienti",
+    "dashboard": "Dashboard",
     "admin": {
       "panel": "Administrace",
       "general": "Obecné",

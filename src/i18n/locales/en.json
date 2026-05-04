@@ -2,6 +2,7 @@
   "pages": {
     "me": "Account",
     "clients": "Clients",
+    "dashboard": "Dashboard",
     "admin": {
       "panel": "Admin Panel",
       "general": "General",
@@ -12,6 +13,18 @@
       "routers": "Routers",
       "auditLog": "Audit Log"
     }
+  },
+  "dashboard": {
+    "loginTitle": "Client Login",
+    "loginDesc": "Log in to view your WireGuard client status and download your configuration.",
+    "scanQr": "Scan QR",
+    "pasteConfig": "Paste Config",
+    "pasteConfigPlaceholder": "Paste your WireGuard private key here...",
+    "signIn": "Sign In",
+    "noClients": "No clients found.",
+    "contactAdmin": "Please contact your administrator to assign a client to your account.",
+    "noUsageData": "No usage data available yet.",
+    "cameraUnavailable": "Camera unavailable. Please use the Paste Config tab instead."
   },
   "user": {
     "email": "E-Mail"
@@ -43,6 +56,7 @@
     "no": "No",
     "confirmPassword": "Confirm Password",
     "loading": "Loading...",
+    "recommended": "Recommended",
     "2fa": "Two Factor Authentication",
     "2faCode": "TOTP Code"
   },
@@ -127,7 +141,10 @@
     "firewallIps": "Firewall Allowed IPs",
     "firewallIpsDesc": "Destination IPs/CIDRs this client can access (server-side enforcement). Leave empty to use Allowed IPs. Supports optional port and protocol filtering. See docs for syntax.",
     "downloadPng": "Download PNG",
-    "copyPng": "Copy PNG"
+    "copyPng": "Copy PNG",
+    "usage": "Usage",
+    "details": "Details",
+    "aggregateBandwidth": "Aggregate Bandwidth"
   },
   "dialog": {
     "change": "Change",
@@ -189,7 +206,12 @@
       "restartSuccess": "Interface restarted",
       "firewall": "Traffic Filtering",
       "firewallEnabled": "Enable Per-Client Firewall",
-      "firewallEnabledDesc": "Restrict client traffic to specific destination IPs using iptables. When enabled, each client can be configured with allowed destinations."
+      "firewallEnabledDesc": "Restrict client traffic to specific destination IPs using iptables. When enabled, each client can be configured with allowed destinations.",
+      "dockerized": "Dockerized",
+      "dockerizedTooltip": "This engine is running inside a Docker container",
+      "notInstalled": "Not installed on this host",
+      "notCompatible": "Not compatible with this router",
+      "engineUnavailableTooltip": "The required binary is not installed on this system. Install it or use a different engine."
     },
     "introText": "Welcome to the admin panel.\n\nHere you can manage the general settings, the configuration, the interface settings and the hooks.\n\nStart by choosing one of the sections in the sidebar.",
     "users": {
@@ -228,6 +250,9 @@
       "disabled": "Disabled",
       "apiUser": "API User",
       "apiPassword": "API Password",
+      "sshUser": "SSH User",
+      "sshKey": "SSH Private Key",
+      "sshPassphrase": "SSH Key Passphrase",
       "credentials": "Credentials",
       "interfaces": "Interfaces",
       "testConnection": "Test Connection",
@@ -235,7 +260,11 @@
       "testFailed": "Connection failed",
       "delete": "Delete",
       "deleteConfirm": "Are you sure you want to delete this router?",
-      "createTitle": "Create Router"
+      "createTitle": "Create Router",
+      "createSuccess": "Router created successfully",
+      "createError": "Failed to create router",
+      "loadError": "Failed to load routers",
+      "noRouters": "No routers configured yet."
     },
     "bootstrap": {
       "title": "Bootstrap Router",

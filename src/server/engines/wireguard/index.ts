@@ -207,8 +207,9 @@ export class WireguardEngine implements VpnEngine {
     result.push('');
 
     WG_DEBUG('Saving config');
+    const configDir = process.env.WG_CONFIG_DIR || '/etc/wireguard';
     await writeFile(
-      `/etc/wireguard/${iface.name}.conf`,
+      `${configDir}/${iface.name}.conf`,
       result.join('\n\n'),
       {
         mode: 0o600,

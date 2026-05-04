@@ -1,29 +1,23 @@
+import { writeFile } from 'node:fs/promises';
 import debug from 'debug';
 import { parseCidr } from 'cidr-tools';
 import { stringifyIp } from 'ip-bigint';
 
+import { configgen } from '../wireguard/configgen';
+import { applySpeedLimit, clearSpeedLimit, teardownSpeedLimits } from '../wireguard/speedlimit';
 import type { LocalShellTransport } from '../../transports/local-shell';
 import type {
-  Client,
-  EngineCapabilities,
-  Health,
-  UsageSample,
   VpnEngine,
+  EngineCapabilities,
+  UsageSample,
+  Health,
+  Client,
+  Hooks,
 } from '../types';
-import { setIntervalImmediately } from '../../../shared/utils/time';
-import {
-  applySpeedLimit,
-  clearSpeedLimit,
-  teardownSpeedLimits,
-} from '../wireguard/speedlimit';
-import { iptablesTemplate } from '../../utils/template';
-import {
-  BoringtunProcessManager,
-  uapiSet,
-  uapiGet,
-  parseUapiGet,
-} from './process';
 import type { InterfaceType } from '#db/repositories/interface/types';
+import { setIntervalImmediately } from '../../../shared/utils/time';
+import { parseWgDump } from '../wg-like';
+import { BoringtunProcessManager } from './process';
 
 const BT_DEBUG = debug('BoringTun');
 
@@ -44,36 +38,6 @@ function getServerAddresses(
     ipv4: `${ipv4Addr}/${cidr4.prefix}`,
     ipv6: ipv6Addr ? `${ipv6Addr}/${parseCidr(iface.ipv6Cidr).prefix}` : undefined,
   };
-}
-
-function buildPeerUapiConfig(peer: Client): string {
-  const lines: string[] = [];
-  lines.push(`public_key=${peer.publicKey}`);
-
-  if (peer.preSharedKey) {
-    lines.push(`preshared_key=${peer.preSharedKey}`);
-  }
-
-  const allowedIps = [
-    `${peer.ipv4Address}/32`,
-    ...(peer.ipv6Address ? [`${peer.ipv6Address}/128`] : []),
-    ...(peer.serverAllowedIps ?? []),
-  ];
-
-  lines.push('replace_allowed_ips=true');
-  for (const ip of allowedIps) {
-    lines.push(`allowed_ip=${ip}`);
-  }
-
-  if (peer.persistentKeepalive) {
-    lines.push(`persistent_keepalive_interval=${peer.persistentKeepalive}`);
-  }
-
-  if (peer.serverEndpoint) {
-    lines.push(`endpoint=${peer.serverEndpoint}`);
-  }
-
-  return lines.join('\n');
 }
 
 export class BoringtunEngine implements VpnEngine {
@@ -128,8 +92,8 @@ export class BoringtunEngine implements VpnEngine {
 
     BT_DEBUG(`Starting BoringTun interface ${wgInterface.name}`);
 
-    const hooks = await Database.hooks.get();
     const clients = await Database.clients.getAll();
+    const hooks = await Database.hooks.get();
 
     // Run PreUp hook
     if (hooks.preUp) {
@@ -141,11 +105,10 @@ export class BoringtunEngine implements VpnEngine {
     // Start boringtun process
     await this.#processManager.start(wgInterface.name);
 
-    // Configure interface via UAPI
-    const socketPath = this.#processManager.uapiSocket(wgInterface.name);
-    await uapiSet(
-      socketPath,
-      `private_key=${wgInterface.privateKey}\nlisten_port=${wgInterface.port}`
+    // Write config and apply via wg setconf
+    await this.#writeConfig(wgInterface, clients, hooks);
+    await this.transport.exec(
+      `wg setconf ${wgInterface.name} <(wg-quick strip /etc/wireguard/${wgInterface.name}.conf)`
     );
 
     // Set up IP addresses
@@ -169,12 +132,6 @@ export class BoringtunEngine implements VpnEngine {
       await this.transport.exec(
         iptablesTemplate(hooks.postUp, wgInterface)
       );
-    }
-
-    // Add peers
-    for (const client of clients) {
-      if (!client.enabled) continue;
-      await this.#uapiAddPeer(wgInterface.name, client);
     }
 
     // Apply firewall
@@ -227,16 +184,11 @@ export class BoringtunEngine implements VpnEngine {
   }
 
   async syncInterface(iface: InterfaceType, peers: Client[]): Promise<void> {
-    const socketPath = this.#processManager.uapiSocket(iface.name);
-
-    // Replace all peers in a single UAPI set
-    const lines: string[] = ['replace_peers=true'];
-    for (const peer of peers) {
-      if (!peer.enabled) continue;
-      lines.push(buildPeerUapiConfig(peer));
-    }
-
-    await uapiSet(socketPath, lines.join('\n'));
+    const hooks = await Database.hooks.get();
+    await this.#writeConfig(iface, peers, hooks);
+    await this.transport.exec(
+      `wg setconf ${iface.name} <(wg-quick strip /etc/wireguard/${iface.name}.conf)`
+    );
     await this.#applyFirewall(iface);
   }
 
@@ -275,9 +227,8 @@ export class BoringtunEngine implements VpnEngine {
   }
 
   async sampleUsage(iface: InterfaceType): Promise<UsageSample[]> {
-    const socketPath = this.#processManager.uapiSocket(iface.name);
-    const response = await uapiGet(socketPath);
-    return parseUapiGet(response);
+    const rawDump = await this.transport.exec(`wg show ${iface.name} dump`);
+    return parseWgDump(rawDump.stdout);
   }
 
   async applySpeedLimit(
@@ -308,20 +259,48 @@ export class BoringtunEngine implements VpnEngine {
     await clearSpeedLimit(this.transport, iface, peer);
   }
 
-  async #uapiAddPeer(ifaceName: string, peer: Client): Promise<void> {
-    const socketPath = this.#processManager.uapiSocket(ifaceName);
-    await uapiSet(socketPath, buildPeerUapiConfig(peer));
+  async #writeConfig(
+    iface: InterfaceType,
+    clients: Client[],
+    hooks: Hooks
+  ): Promise<void> {
+    const result = [];
+    result.push(
+      configgen.generateServerInterface(iface, hooks, {
+        enableIpv6: !WG_ENV.DISABLE_IPV6,
+        engineType: 'wireguard',
+      })
+    );
+
+    for (const client of clients) {
+      if (!client.enabled) {
+        continue;
+      }
+      result.push(
+        configgen.generateServerPeer(client, {
+          enableIpv6: !WG_ENV.DISABLE_IPV6,
+        })
+      );
+    }
+
+    result.push('');
+
+    BT_DEBUG('Saving config');
+    const configDir = process.env.WG_CONFIG_DIR || '/etc/wireguard';
+    await writeFile(
+      `${configDir}/${iface.name}.conf`,
+      result.join('\n\n'),
+      {
+        mode: 0o600,
+      }
+    );
+    BT_DEBUG('Config saved successfully');
   }
 
   async #applyFirewall(iface: InterfaceType): Promise<void> {
     const clients = await Database.clients.getAll();
     const userConfig = await Database.userConfigs.get();
-    await firewall.rebuildRules(
-      iface,
-      clients,
-      userConfig,
-      !WG_ENV.DISABLE_IPV6
-    );
+    await firewall.rebuildRules(iface, clients, userConfig, !WG_ENV.DISABLE_IPV6);
   }
 
   async #reapplySpeedLimits(iface: InterfaceType): Promise<void> {

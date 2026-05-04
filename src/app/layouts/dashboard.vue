@@ -54,14 +54,15 @@ const _logout = useSubmit(
     method: 'delete',
   },
   {
-    revert: async () => {
-      await navigateTo('/dashboard/login');
-    },
+    revert: async () => {},
     noSuccessToast: true,
   }
 );
 
-function logout() {
-  return _logout(undefined);
+async function logout() {
+  authStore.userData = null;
+  authStore.principal = null;
+  await _logout(undefined);
+  await navigateTo('/dashboard/login', { replace: true });
 }
 </script>

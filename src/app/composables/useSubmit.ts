@@ -31,6 +31,28 @@ type SubmitOpts<
   noSuccessToast?: boolean;
 };
 
+function getFriendlyErrorMessage(e: FetchError): string {
+  const status = e.statusCode;
+  const dataMessage = e.data?.message;
+
+  if (status === 403) {
+    return dataMessage || 'You do not have permission to perform this action.';
+  }
+  if (status === 500) {
+    return dataMessage || 'A server error occurred. Please try again later.';
+  }
+  if (status === 401) {
+    return dataMessage || 'Your session has expired. Please log in again.';
+  }
+  if (status === 404) {
+    return dataMessage || 'The requested resource was not found.';
+  }
+  if (status === 429) {
+    return dataMessage || 'Too many requests. Please wait a moment.';
+  }
+  return dataMessage || e.message || 'An unexpected error occurred.';
+}
+
 export function useSubmit<
   R extends NitroFetchRequest,
   O extends NitroFetchOptions<R> & { body?: never },
@@ -58,7 +80,7 @@ export function useSubmit<
       if (e instanceof FetchError) {
         toast.showToast({
           type: 'error',
-          message: e.data.message,
+          message: getFriendlyErrorMessage(e),
         });
       } else if (e instanceof Error) {
         toast.showToast({

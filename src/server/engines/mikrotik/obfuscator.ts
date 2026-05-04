@@ -32,7 +32,11 @@ const CONFIG_FILE = `${CONFIG_DIR}/wg-obfuscator.conf`;
 function makeSshTransport(router: RouterType): SshTransport {
   const creds = parseCredentials(router);
   const auth = creds.sshKey
-    ? { type: 'key' as const, privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8') }
+    ? {
+        type: 'key' as const,
+        privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8'),
+        ...(router.sshPassphraseEncrypted ? { passphrase: decrypt(router.sshPassphraseEncrypted) } : {}),
+      }
     : { type: 'password' as const, password: creds.apiPassword ?? '' };
 
   return new SshTransport({
@@ -48,6 +52,7 @@ function parseCredentials(router: RouterType): {
   apiPassword?: string;
   sshUser?: string;
   sshKey?: string;
+  sshPassphraseEncrypted?: string;
 } {
   if (!router.credentialsEncrypted) {
     return {};

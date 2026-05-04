@@ -20,6 +20,7 @@
           </div>
           <ClientCardOneTimeLink :client="client" />
           <ClientCardExpireDate :client="client" />
+          <ClientCardQuota :client="client" />
         </div>
 
         <div
@@ -34,6 +35,13 @@
       <div
         class="flex items-center justify-between gap-1 text-gray-400 dark:text-neutral-400"
       >
+        <NuxtLink
+          :to="`/clients/${client.id}`"
+          class="rounded p-2 align-middle transition hover:bg-red-800 hover:text-white dark:hover:bg-red-800 dark:hover:text-white"
+          :title="$t('client.details')"
+        >
+          <IconsInfo class="w-5" />
+        </NuxtLink>
         <ClientCardSwitch :client="client" />
         <ClientCardEdit :client="client" />
         <ClientCardQRCode :client="client" />

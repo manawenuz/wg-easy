@@ -1,4 +1,5 @@
 import { Client, type ConnectConfig } from 'ssh2';
+import type { SFTPWrapper } from 'ssh2';
 
 export type SshAuth =
   | { type: 'password'; password: string }
@@ -45,6 +46,27 @@ export class SshTransport {
 
         stream.on('error', (err: Error) => {
           reject(err);
+        });
+      });
+    });
+  }
+
+  async writeFile(remotePath: string, content: string, mode?: number): Promise<void> {
+    await this.#ensureConnected();
+    const conn = this.conn!;
+
+    return new Promise((resolve, reject) => {
+      conn.sftp((err, sftp: SFTPWrapper) => {
+        if (err) {
+          return reject(err);
+        }
+
+        sftp.writeFile(remotePath, content, { mode }, (writeErr) => {
+          sftp.end();
+          if (writeErr) {
+            return reject(writeErr);
+          }
+          resolve();
         });
       });
     });

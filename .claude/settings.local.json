@@ -7,7 +7,15 @@
       "Bash(rtk git *)",
       "Bash(rtk ls *)",
       "Bash(rtk read *)",
-      "Bash(rtk grep *)"
+      "Bash(rtk grep *)",
+      "Bash(lsof -iTCP:51821 -sTCP:LISTEN -n -P)",
+      "Bash(rtk docker *)",
+      "Bash(rtk ps *)",
+      "Bash(docker compose *)",
+      "Bash(rtk find *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/CascadeProjects/wzp root@178.105.64.108 \"echo connected; uname -a; cat /etc/os-release | head -5\")",
+      "Bash(ssh -i ~/CascadeProjects/wzp root@178.105.64.108 \"set -e; echo '=== docker ps ==='; docker ps; echo '=== wg show ==='; docker exec \\\\$\\(docker ps -q --filter name=wg-easy 2>/dev/null | head -1\\) wg show 2>&1 || wg show; echo '=== iptables nat ==='; iptables -t nat -S | head -30; echo '=== iptables filter FORWARD ==='; iptables -S FORWARD | head -20; echo '=== ip route ==='; ip route\")",
+      "Bash(ssh -i '~/CascadeProjects/wzp' root@178.105.64.108 'CID=$\\(docker ps -q --filter name=wg-easy | head -1\\); echo CID=$CID; echo '\\\\''=== container wg show ==='\\\\''; docker exec $CID wg show; echo '\\\\''=== container wg0.conf ==='\\\\''; docker exec $CID cat /etc/wireguard/wg0.conf 2>/dev/null | head -40; echo '\\\\''=== container iptables nat ==='\\\\''; docker exec $CID iptables -t nat -S 2>&1 | head -30; echo '\\\\''=== container iptables filter ==='\\\\''; docker exec $CID iptables -S 2>&1 | head -30; echo '\\\\''=== container resolv.conf ==='\\\\''; docker exec $CID cat /etc/resolv.conf; echo '\\\\''=== container env DNS ==='\\\\''; docker exec $CID env | grep -i dns; echo '\\\\''=== check dnsmasq/resolved ==='\\\\''; docker exec $CID ps -ef | head -20; echo '\\\\''=== container ip a ==='\\\\''; docker exec $CID ip a 2>&1 | head -40')"
     ]
   }
 }

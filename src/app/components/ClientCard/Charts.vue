@@ -63,7 +63,7 @@ const chartOptions = {
   },
   colors: [],
   stroke: {
-    curve: 'smooth',
+    curve: 'straight',
     width: 0,
   },
   fill: {

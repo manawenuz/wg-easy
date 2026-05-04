@@ -32,6 +32,7 @@ export async function runPeriodResetter() {
     // If no manual disable after quota disable, re-enable the peer
     if (manualDisableAfter.length === 0) {
       try {
+        await Database.clients.toggle(q.clientId, true);
         await engine.enablePeer(iface, client.publicKey);
         await Database.auditLogs.create({
           action: 'quota.periodReset',

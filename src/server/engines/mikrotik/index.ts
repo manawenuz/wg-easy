@@ -32,6 +32,7 @@ interface RouterCredentials {
   sshUser?: string;
   sshKey?: string;
   tlsFingerprint?: string;
+  sshPassphraseEncrypted?: string;
 }
 
 interface ConnectionEntry {
@@ -247,7 +248,11 @@ export class MikrotikEngine implements VpnEngine {
       port: router.port ?? undefined,
       user: creds.sshUser ?? creds.apiUser ?? 'admin',
       auth: creds.sshKey
-        ? { type: 'key', privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8') }
+        ? {
+            type: 'key',
+            privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8'),
+            ...(router.sshPassphraseEncrypted ? { passphrase: decrypt(router.sshPassphraseEncrypted) } : {}),
+          }
         : { type: 'password', password: creds.apiPassword },
     });
 

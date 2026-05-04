@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { SshTransport } from '../../transports/ssh';
 import { RouterOsApiTransport } from '../../transports/routeros-api';
-import { encrypt } from '../../utils/crypto';
+import { decrypt, encrypt } from '../../utils/crypto';
 import type { RouterType } from '#db/repositories/router/types';
 
 export interface BootstrapOptions {
@@ -37,7 +37,11 @@ type StepResult = OkResult | ErrResult;
 
 function makeSshTransport(router: RouterType, opts: BootstrapOptions): SshTransport {
   const auth = opts.sshKey
-    ? { type: 'key' as const, privateKey: opts.sshKey }
+    ? {
+        type: 'key' as const,
+        privateKey: opts.sshKey,
+        ...(router.sshPassphraseEncrypted ? { passphrase: decrypt(router.sshPassphraseEncrypted) } : {}),
+      }
     : { type: 'password' as const, password: opts.sshPassword ?? '' };
 
   return new SshTransport({

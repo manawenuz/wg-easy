@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { LocalShellTransport } from '../../transports/local-shell';
 
-vi.mock('node:fs/promises', () => ({
-  writeFile: vi.fn(),
-}));
-
 describe('AmneziaWgEngine', () => {
   let AmneziaWgEngine: typeof import('./index').AmneziaWgEngine;
   let engine: import('./index').AmneziaWgEngine;
@@ -38,6 +34,7 @@ describe('AmneziaWgEngine', () => {
     i5: null,
     enabled: true,
     firewallEnabled: false,
+    routerId: 0,
     engineType: 'amneziawg',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -88,9 +85,11 @@ describe('AmneziaWgEngine', () => {
 
   beforeAll(async () => {
     transportExec = vi.fn(async () => ({ stdout: '', stderr: '' }));
+    const transportWriteFile = vi.fn(async () => {});
 
     const mockTransport = {
       exec: transportExec,
+      writeFile: transportWriteFile,
     } as unknown as LocalShellTransport;
 
     (globalThis as any).Database = {
@@ -106,6 +105,12 @@ describe('AmneziaWgEngine', () => {
       },
       hooks: {
         get: vi.fn(async () => mockHooks),
+      },
+      routers: {
+        get: vi.fn(async () => undefined),
+      },
+      speedLimits: {
+        getAllForInterface: vi.fn(async () => []),
       },
       userConfigs: {
         get: vi.fn(async () => ({
@@ -146,9 +151,7 @@ describe('AmneziaWgEngine', () => {
     AmneziaWgEngine = mod.AmneziaWgEngine;
     engine = new AmneziaWgEngine(mockTransport);
 
-    fsWriteFile = vi.mocked(
-      await import('node:fs/promises')
-    ).writeFile;
+    fsWriteFile = transportWriteFile;
   });
 
   beforeEach(() => {

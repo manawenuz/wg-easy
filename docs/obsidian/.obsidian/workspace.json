@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "prds/00-foundation/04-data-model-migration.md",
+                "file": "prds/20-user-features/03-bandwidth-quotas.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "04-data-model-migration"
+              "title": "03-bandwidth-quotas"
             }
           }
         ]
@@ -183,13 +183,25 @@
       "bases:Create new base": false
     }
   },
-  "active": "c314a8074f2d3392",
+  "active": "129babc6b9c043ec",
   "lastOpenFiles": [
+    "prds/60-bugfixes/05-per-user-client-ownership.md",
+    "prds/60-bugfixes/04-dns-stub-resolver.md",
+    "prds/60-bugfixes/03-dashboard-logout-broken.md",
+    "prds/60-bugfixes/02-dashboard-privilege-escalation.md",
+    "prds/60-bugfixes/01-dashboard-i18n-key.md",
+    "prds/60-bugfixes",
+    "handoff/e2e-integration-scenario.md",
+    "handoff/speed-quota-test-plan.md",
+    "prds/00-foundation/05-auth-middleware-ssr-fix.md",
+    "handoff/kimi-exhaustive-testing.md",
+    "handoff/kimi-ui-polish.md",
+    "handoff/kimi-ssh-passphrase-fix.md",
+    "prds/00-foundation/04-data-model-migration.md",
     "handoff/quartz-publishing.md",
     "prds/00-foundation/03-auth-refactor.md",
     "prds/00-foundation/02-multi-admin-rbac.md",
     "prds/00-foundation/01-backend-abstraction.md",
-    "prds/00-foundation/04-data-model-migration.md",
     "glossary.md",
     "architecture.md",
     "handoff/kimi-prompt.md",
@@ -201,20 +213,9 @@
     "prds/50-integrations",
     "prds/40-multi-server/03-multi-path-routing.md",
     "prds/10-mikrotik/03-mikrotik-obfuscation.md",
-    "prds/40-multi-server/02-admin-router-acl.md",
-    "prds/40-multi-server/01-multi-router-federation.md",
     "prds/40-multi-server",
-    "prds/30-multi-engine/03-engine-selection-ux.md",
-    "prds/30-multi-engine/02-boringtun-driver.md",
-    "prds/30-multi-engine/01-amneziawg-promotion.md",
     "prds/30-multi-engine",
-    "prds/20-user-features/04-speed-limits.md",
-    "prds/20-user-features/03-bandwidth-quotas.md",
-    "prds/20-user-features/02-qr-key-login.md",
-    "prds/20-user-features/01-user-dashboard.md",
     "prds/20-user-features",
-    "prds/10-mikrotik/02-mikrotik-autoconfig.md",
-    "prds/10-mikrotik/01-mikrotik-driver.md",
     "prds/10-mikrotik"
   ]
 }

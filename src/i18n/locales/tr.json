@@ -2,6 +2,7 @@
   "pages": {
     "me": "Hesap",
     "clients": "İstemciler",
+    "dashboard": "Panel",
     "admin": {
       "panel": "Yönetici Paneli",
       "general": "Genel",

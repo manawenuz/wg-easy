@@ -43,6 +43,24 @@
           :label="t('admin.routers.apiPassword')"
           autocomplete="new-password"
         />
+        <template v-if="routerData?.transport === 'ssh'">
+          <FormTextField
+            id="sshUser"
+            v-model="form.sshUser"
+            :label="t('admin.routers.sshUser')"
+          />
+          <FormTextField
+            id="sshKey"
+            v-model="form.sshKey"
+            :label="t('admin.routers.sshKey')"
+          />
+          <FormPasswordField
+            id="sshPassphrase"
+            v-model="form.sshPassphrase"
+            :label="t('admin.routers.sshPassphrase')"
+            autocomplete="new-password"
+          />
+        </template>
       </FormGroup>
 
       <FormGroup>
@@ -159,6 +177,9 @@ const form = ref({
   enabled: true,
   apiUser: '',
   apiPassword: '',
+  sshUser: '',
+  sshKey: '',
+  sshPassphrase: '',
 });
 
 watch(
@@ -172,6 +193,9 @@ watch(
       enabled: val.enabled ?? true,
       apiUser: '',
       apiPassword: '',
+      sshUser: '',
+      sshKey: '',
+      sshPassphrase: '',
     };
   },
   { immediate: true }
@@ -184,10 +208,13 @@ async function submit() {
   if (form.value.port !== (routerData.value?.port ?? 8728)) body.port = form.value.port;
   if (form.value.enabled !== routerData.value?.enabled) body.enabled = form.value.enabled;
 
-  if (form.value.apiUser || form.value.apiPassword) {
+  if (form.value.apiUser || form.value.apiPassword || form.value.sshUser || form.value.sshKey || form.value.sshPassphrase) {
     body.credentials = {
       apiUser: form.value.apiUser,
       apiPassword: form.value.apiPassword,
+      sshUser: form.value.sshUser || undefined,
+      sshKey: form.value.sshKey || undefined,
+      sshPassphrase: form.value.sshPassphrase || undefined,
     };
   }
 
@@ -208,6 +235,9 @@ async function revert() {
       enabled: routerData.value.enabled ?? true,
       apiUser: '',
       apiPassword: '',
+      sshUser: '',
+      sshKey: '',
+      sshPassphrase: '',
     };
   }
 }

@@ -73,10 +73,9 @@ export async function requirePermission(
     // Fall through to role + ACL check below
   }
 
-  // User dashboard: only self-access
+  // User dashboard: only self-access, regardless of underlying user role
   if (p.kind === 'user') {
     if (perm === 'dashboard:self') return;
-    if (resource?.userId === p.user.id) return;
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
@@ -132,7 +131,7 @@ export async function requirePermission(
 export function isAdminPrincipal(p: Principal | null): boolean {
   if (!p) return false;
   if (p.kind === 'admin') return true;
-  if (p.kind === 'token' || p.kind === 'user') {
+  if (p.kind === 'token') {
     return (
       p.user.role === roles.SUPERADMIN ||
       p.user.role === roles.ADMIN ||
@@ -140,6 +139,7 @@ export function isAdminPrincipal(p: Principal | null): boolean {
       p.user.role === roles.VIEWER
     );
   }
+  // Dashboard user sessions are NEVER admin, regardless of underlying role
   return false;
 }
 

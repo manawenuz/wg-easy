@@ -1,21 +1,22 @@
 export default defineEventHandler(async (event) => {
   const url = getRequestURL(event);
 
-  // Only resolve principal for API routes
-  if (!url.pathname.startsWith('/api/')) {
-    return;
-  }
-
   // Skip setup routes (no auth needed during setup)
-  if (url.pathname.startsWith('/api/setup/')) {
+  if (url.pathname.startsWith('/api/setup/') || url.pathname.startsWith('/setup/')) {
     return;
   }
 
-  // Resolve principal lazily; cache on event context
+  // Resolve principal once per request; cache on event context
   if (!event.context.principal) {
-    const principal = await resolvePrincipal(event);
-    if (principal) {
-      event.context.principal = principal;
+    try {
+      const principal = await resolvePrincipal(event);
+      if (principal) {
+        event.context.principal = principal;
+      }
+    } catch (err) {
+      console.error('[principal middleware] resolvePrincipal failed:', err);
+      // Leave event.context.principal undefined so downstream
+      // requirePermission returns 401 cleanly.
     }
   }
 });

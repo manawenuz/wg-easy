@@ -2,6 +2,7 @@
   "pages": {
     "me": "账户管理",
     "clients": "客户端管理",
+    "dashboard": "仪表盘",
     "admin": {
       "panel": "管理面板",
       "general": "通用设置",

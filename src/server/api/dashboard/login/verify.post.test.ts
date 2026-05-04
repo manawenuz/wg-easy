@@ -93,7 +93,7 @@ describe('dashboard/login/verify.post', () => {
     const result = await verifyHandler(event);
 
     expect(result).toEqual({ ok: true });
-    expect(mockSession.update).toHaveBeenCalledWith({ userId: 42 });
+    expect(mockSession.update).toHaveBeenCalledWith({ userId: 42, clientId: 1 });
   });
 
   it('returns 401 for invalid challenge', async () => {
@@ -117,7 +117,7 @@ describe('dashboard/login/verify.post', () => {
     await expect(verifyHandler(event)).rejects.toThrow('Invalid public key');
   });
 
-  it('returns 403 when client is disabled', async () => {
+  it('allows disabled (non-expired) clients to log in', async () => {
     const clientKeypair = nacl.box.keyPair();
     const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
     const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
@@ -126,6 +126,29 @@ describe('dashboard/login/verify.post', () => {
     const mockClient = {
       id: 1,
       enabled: false,
+      expiresAt: null,
+      user: { id: 42, enabled: true, role: roles.CLIENT },
+    };
+
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+
+    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const event = makeEvent({ challengeId, signature });
+    const result = await verifyHandler(event);
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('returns 403 when client has expired', async () => {
+    const clientKeypair = nacl.box.keyPair();
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
+    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
+    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+
+    const mockClient = {
+      id: 1,
+      enabled: false,
+      expiresAt: new Date(Date.now() - 86400000).toISOString(),
       user: { id: 42, enabled: true, role: roles.CLIENT },
     };
 
@@ -134,7 +157,7 @@ describe('dashboard/login/verify.post', () => {
     const verifyHandler = (await import('./verify.post')).default as Handler;
     const event = makeEvent({ challengeId, signature });
 
-    await expect(verifyHandler(event)).rejects.toThrow('Client is disabled');
+    await expect(verifyHandler(event)).rejects.toThrow('Client has expired');
   });
 
   it('returns 403 when user is disabled', async () => {
@@ -157,7 +180,7 @@ describe('dashboard/login/verify.post', () => {
     await expect(verifyHandler(event)).rejects.toThrow('User is disabled');
   });
 
-  it('returns 403 when user role is not client', async () => {
+  it('allows any user role for dashboard login', async () => {
     const clientKeypair = nacl.box.keyPair();
     const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
     const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
@@ -166,6 +189,7 @@ describe('dashboard/login/verify.post', () => {
     const mockClient = {
       id: 1,
       enabled: true,
+      expiresAt: null,
       user: { id: 42, enabled: true, role: roles.ADMIN },
     };
 
@@ -173,8 +197,9 @@ describe('dashboard/login/verify.post', () => {
 
     const verifyHandler = (await import('./verify.post')).default as Handler;
     const event = makeEvent({ challengeId, signature });
+    const result = await verifyHandler(event);
 
-    await expect(verifyHandler(event)).rejects.toThrow('Invalid user role');
+    expect(result).toEqual({ ok: true });
   });
 
   it('returns 429 after 10 attempts from same IP', async () => {

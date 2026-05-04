@@ -11,6 +11,12 @@ type WGClientReturn = TypedInternalResponse<
 export type LocalClient = WGClientReturn & {
   avatar?: string;
   transferMax?: number;
+  quota?: {
+    limitBytes: number;
+    usedBytes: number;
+    period: string;
+    periodEnd: Date;
+  };
 } & Omit<ClientPersist, 'transferRxPrevious' | 'transferTxPrevious'>;
 
 export type ClientPersist = {

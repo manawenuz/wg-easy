@@ -29,9 +29,13 @@ let provider = nullObject as never as DBServiceType;
 
 connect().then(async (db) => {
   provider = db;
-  const iface = await db.interfaces.get();
-  const engine = getEngine(iface.engineType);
-  await engine.bringUp(iface);
+  try {
+    const iface = await db.interfaces.get();
+    const engine = getEngine(iface.engineType);
+    await engine.bringUp(iface);
+  } catch (err) {
+    console.warn('Engine bringUp failed (non-fatal for API testing):', err);
+  }
   startScheduler();
 });
 

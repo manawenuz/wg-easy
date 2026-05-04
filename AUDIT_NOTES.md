@@ -6,7 +6,9 @@ This document summarizes the technical state of the codebase after the first thr
 - **VpnEngine Abstraction:** The abstraction is solid. We have four working engines: `wireguard`, `amneziawg`, `boringtun`, and `mikrotik`.
 - **Registry:** The `registry.ts` correctly handles dynamic resolution of engines per interface.
 - **Transports:** `LocalShell`, `SshTransport`, and `RouterOsApiTransport` provide a clean separation between engine logic and communication protocols.
-- **Scheduler:** The background workers (`usagePoller`, `quotaEvaluator`, etc.) are correctly initialized in `Database.ts` and handle multi-engine interfaces.
+- **Phase 1 E2E (WireGuard):** Verified via `src/test/e2e-phase1-wireguard.cjs`. Confirmed RBAC, quota auto-disable, and download speed limits.
+- **Traffic Shaping:** Full bi-directional shaping (upload + download) requires a Linux host with the `ifb` kernel module (`modprobe ifb`). In Docker-on-macOS/Windows, only download (egress) shaping is functional.
+- **Scheduler:** The background workers (`usagePoller`, `quotaEvaluator`, etc.) are correctly initialized in `Database.ts` and handle multi-engine interfaces. Verified that usage injection correctly triggers peer disabling.
 
 ## 2. Security Audit
 - **RBAC:** Principal context and `requirePermission` are enforced in all new API routes.

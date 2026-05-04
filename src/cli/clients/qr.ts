@@ -2,9 +2,17 @@ import { defineCommand } from 'citty';
 import { consola } from 'consola';
 import { eq } from 'drizzle-orm';
 
-import { wg } from '../../server/utils/wgHelper';
+import { configgen as wireguardConfiggen } from '../../server/engines/wireguard/configgen';
+import { configgen as amneziawgConfiggen } from '../../server/engines/amneziawg/configgen';
 import { encodeQRCodeTerm } from '../../server/utils/qr';
 import { db, schema } from '../db';
+
+function getConfiggen(engineType: string) {
+  if (engineType === 'amneziawg') {
+    return amneziawgConfiggen;
+  }
+  return wireguardConfiggen;
+}
 
 export default defineCommand({
   meta: {
@@ -57,7 +65,8 @@ export default defineCommand({
       return;
     }
 
-    const clientConfig = wg.generateClientConfig(
+    const configgen = getConfiggen(wgInterface.engineType);
+    const clientConfig = configgen.generateClientConfig(
       wgInterface,
       userConfig,
       client,

@@ -29,14 +29,25 @@ export default definePermissionEventHandler(
     }
 
     const usage = await engine.sampleUsage(iface);
+    const quotas = await Database.quotas.getAll();
+
     const clients = dbClients.map((client) => {
       const sample = usage.find((s) => s.publicKey === client.publicKey);
+      const quota = quotas.find((q) => q.clientId === client.id);
       return {
         ...client,
         latestHandshakeAt: sample?.lastHandshakeAt ?? null,
         endpoint: sample?.endpoint ?? null,
         transferRx: sample ? Number(sample.rxBytes) : null,
         transferTx: sample ? Number(sample.txBytes) : null,
+        quota: quota
+          ? {
+              limitBytes: quota.limitBytes,
+              usedBytes: quota.usedBytes,
+              period: quota.period,
+              periodEnd: quota.periodEnd,
+            }
+          : undefined,
       };
     });
 

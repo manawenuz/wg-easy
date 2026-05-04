@@ -152,8 +152,9 @@
 <script setup lang="ts">
 function formatKbps(kbps: number): string {
   if (kbps === 0) return 'Unlimited';
-  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
-  return `${kbps} KB/s`;
+  const kbytes = kbps / 8;
+  if (kbytes >= 1024) return `${(kbytes / 1024).toFixed(1)} MB/s (${kbps} kbps)`;
+  return `${kbytes.toFixed(1)} KB/s (${kbps} kbps)`;
 }
 
 const route = useRoute();
@@ -192,7 +193,7 @@ const chartOptions = computed(() => ({
       | 'light',
   },
   colors: ['#ef4444', '#3b82f6'],
-  stroke: { curve: 'smooth' as const, width: 2 },
+  stroke: { curve: 'straight' as const, width: 1.5 },
   fill: {
     type: 'gradient',
     gradient: {

@@ -25,10 +25,10 @@ describe('dashboard/clients.get', () => {
   });
 
   type Handler = (event: {
-    context: { principal: { kind: string; user: ReturnType<typeof mockUser> } };
+    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number } };
   }) => Promise<unknown>;
 
-  const makeEvent = (principal: { kind: string; user: ReturnType<typeof mockUser> }) =>
+  const makeEvent = (principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number }) =>
     ({ context: { principal } }) as Parameters<Handler>[0];
 
   beforeAll(() => {
@@ -40,19 +40,17 @@ describe('dashboard/clients.get', () => {
     vi.clearAllMocks();
     vi.stubGlobal('Database', {
       clients: {
-        getForUser: vi.fn(async (userId: number) => {
-          if (userId === 1) {
-            return [
-              { id: 1, name: 'client1', enabled: true, ipv4Address: '10.0.0.1', publicKey: 'pk1', userId: 1, expiresAt: null },
-              { id: 2, name: 'client2', enabled: true, ipv4Address: '10.0.0.2', publicKey: 'pk2', userId: 1, expiresAt: null },
-            ];
+        get: vi.fn(async (clientId: number) => {
+          if (clientId === 1) {
+            return { id: 1, name: 'client1', enabled: true, ipv4Address: '10.0.0.1', publicKey: 'pk1', userId: 1, expiresAt: null };
           }
-          if (userId === 2) {
-            return [
-              { id: 3, name: 'client3', enabled: true, ipv4Address: '10.0.0.3', publicKey: 'pk3', userId: 2, expiresAt: null },
-            ];
+          if (clientId === 2) {
+            return { id: 2, name: 'client2', enabled: true, ipv4Address: '10.0.0.2', publicKey: 'pk2', userId: 1, expiresAt: null };
           }
-          return [];
+          if (clientId === 3) {
+            return { id: 3, name: 'client3', enabled: true, ipv4Address: '10.0.0.3', publicKey: 'pk3', userId: 2, expiresAt: null };
+          }
+          return undefined;
         }),
       },
       interfaces: {
@@ -67,28 +65,27 @@ describe('dashboard/clients.get', () => {
     });
   });
 
-  it('returns only the requester clients', async () => {
+  it('returns only the session-bound client', async () => {
     const clientsHandler = (await import('./index.get')).default as Handler;
-    const event = makeEvent({ kind: 'user', user: mockUser(1, 2) });
-    const result = (await clientsHandler(event)) as Array<{ id: number }>;
-
-    expect(result).toHaveLength(2);
-    expect(result[0]!.id).toBe(1);
-    expect(result[1]!.id).toBe(2);
-  });
-
-  it('does not leak other users clients', async () => {
-    const clientsHandler = (await import('./index.get')).default as Handler;
-    const event = makeEvent({ kind: 'user', user: mockUser(2, 2) });
+    const event = makeEvent({ kind: 'user', user: mockUser(1, 2), clientId: 1 });
     const result = (await clientsHandler(event)) as Array<{ id: number }>;
 
     expect(result).toHaveLength(1);
-    expect(result[0]!.id).toBe(3);
+    expect(result[0]!.id).toBe(1);
+  });
+
+  it('does not leak other clients even when owned by same user', async () => {
+    const clientsHandler = (await import('./index.get')).default as Handler;
+    const event = makeEvent({ kind: 'user', user: mockUser(1, 2), clientId: 2 });
+    const result = (await clientsHandler(event)) as Array<{ id: number }>;
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.id).toBe(2);
   });
 
   it('includes usage data from engine', async () => {
     const clientsHandler = (await import('./index.get')).default as Handler;
-    const event = makeEvent({ kind: 'user', user: mockUser(1, 2) });
+    const event = makeEvent({ kind: 'user', user: mockUser(1, 2), clientId: 1 });
     const result = (await clientsHandler(event)) as Array<{
       rxBytes: number | null;
       txBytes: number | null;
@@ -98,7 +95,5 @@ describe('dashboard/clients.get', () => {
     expect(result[0]!.rxBytes).toBe(100);
     expect(result[0]!.txBytes).toBe(200);
     expect(result[0]!.lastHandshakeAt).not.toBeNull();
-    expect(result[1]!.rxBytes).toBe(0);
-    expect(result[1]!.txBytes).toBe(0);
   });
 });

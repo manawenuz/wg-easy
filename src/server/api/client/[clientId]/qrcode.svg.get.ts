@@ -1,6 +1,14 @@
 import { ClientGetSchema } from '#db/repositories/client/types';
-import { configgen } from '../../../engines/wireguard/configgen';
+import { configgen as wireguardConfiggen } from '../../../engines/wireguard/configgen';
+import { configgen as amneziawgConfiggen } from '../../../engines/amneziawg/configgen';
 import { encodeQRCode } from '../../../utils/qr';
+
+function getConfiggen(engineType: string) {
+  if (engineType === 'amneziawg') {
+    return amneziawgConfiggen;
+  }
+  return wireguardConfiggen;
+}
 
 export default definePermissionEventHandler(
   'clients',
@@ -23,6 +31,7 @@ export default definePermissionEventHandler(
 
     const wgInterface = await Database.interfaces.get();
     const userConfig = await Database.userConfigs.get();
+    const configgen = getConfiggen(wgInterface.engineType);
 
     const config = configgen.generateClientConfig(
       wgInterface,

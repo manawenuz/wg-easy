@@ -1,4 +1,5 @@
-import type { SharedPublicUser } from '~~/shared/utils/permissions';
+import { roles } from '#shared/utils/permissions';
+import type { SharedPublicUser } from '#shared/utils/permissions';
 
 export default defineEventHandler(async (event) => {
   const principal = await resolvePrincipal(event);
@@ -12,11 +13,23 @@ export default defineEventHandler(async (event) => {
 
   const user = principal.user;
 
+  // Dashboard user sessions have an effective role of CLIENT regardless of
+  // the underlying user's role, and the displayed name is the client name.
+  let role = user.role;
+  let name = user.name;
+  if (principal.kind === 'user') {
+    role = roles.CLIENT;
+    const client = await Database.clients.get(principal.clientId);
+    if (client) {
+      name = client.name;
+    }
+  }
+
   return {
     id: user.id,
-    role: user.role,
+    role,
     username: user.username,
-    name: user.name,
+    name,
     email: user.email,
     totpVerified: user.totpVerified,
   } satisfies SharedPublicUser;

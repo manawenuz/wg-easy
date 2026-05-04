@@ -39,16 +39,32 @@
         @click="selectEngine(engine.id)"
       >
         <div class="flex items-center justify-between">
-          <span
-            class="font-semibold"
-            :class="
-              isEngineDisabled(engine)
-                ? 'text-gray-500 dark:text-neutral-500'
-                : 'text-gray-900 dark:text-neutral-200'
-            "
-          >
-            {{ engine.name }}
-          </span>
+          <div class="flex items-center gap-2">
+            <span
+              class="font-semibold"
+              :class="
+                isEngineDisabled(engine)
+                  ? 'text-gray-500 dark:text-neutral-500'
+                  : 'text-gray-900 dark:text-neutral-200'
+              "
+            >
+              {{ engine.name }}
+            </span>
+            <span
+              v-if="engine.id === 'wireguard'"
+              class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300"
+            >
+              {{ $t('general.recommended') }}
+            </span>
+            <span
+              v-if="engine.dockerized"
+              class="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              :title="$t('admin.interface.dockerizedTooltip')"
+            >
+              <IconsDocker class="size-3" />
+              {{ $t('admin.interface.dockerized') }}
+            </span>
+          </div>
           <IconsCheckCircle
             v-if="selected === engine.id"
             class="size-5 text-red-800 dark:text-red-400"
@@ -58,17 +74,24 @@
           {{ engine.description }}
         </p>
         <InterfacesEngineCapabilityHints :capabilities="engine.capabilities" />
-        <p
+        <div
           v-if="!engine.available"
-          class="mt-2 text-xs font-medium text-red-600 dark:text-red-400"
+          class="mt-2 flex items-center gap-1"
         >
-          Not installed on this host
-        </p>
+          <IconsWarning class="size-3.5 text-red-600 dark:text-red-400" />
+          <BaseTooltip
+            :text="$t('admin.interface.engineUnavailableTooltip')"
+          >
+            <span class="text-xs font-medium text-red-600 dark:text-red-400">
+              {{ $t('admin.interface.notInstalled') }}
+            </span>
+          </BaseTooltip>
+        </div>
         <p
           v-else-if="isEngineDisabledByRouter(engine)"
           class="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400"
         >
-          Not compatible with this router
+          {{ $t('admin.interface.notCompatible') }}
         </p>
       </button>
     </div>
@@ -112,6 +135,7 @@ interface EngineInfo {
   name: string;
   description: string;
   available: boolean;
+  dockerized: boolean;
   capabilities: {
     obfuscation: string;
     speedLimit: string;
@@ -153,7 +177,7 @@ function isEngineDisabled(engine: EngineInfo): boolean {
 
 function cardClasses(engine: EngineInfo): string {
   if (isEngineDisabled(engine)) {
-    return 'border border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800 opacity-60 cursor-not-allowed';
+    return 'border border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800 opacity-60 cursor-not-allowed grayscale';
   }
   if (selected.value === engine.id) {
     return 'border-2 border-red-800 bg-red-50 dark:bg-red-900/20 cursor-pointer';

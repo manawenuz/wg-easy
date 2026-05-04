@@ -1,5 +1,14 @@
-import { configgen } from '../../../../engines/wireguard/configgen';
+import { configgen as wireguardConfiggen } from '../../../../engines/wireguard/configgen';
+import { configgen as amneziawgConfiggen } from '../../../../engines/amneziawg/configgen';
+import { encodeQRCode } from '../../../../utils/qr';
 import { ClientGetSchema } from '#db/repositories/client/types';
+
+function getConfiggen(engineType: string) {
+  if (engineType === 'amneziawg') {
+    return amneziawgConfiggen;
+  }
+  return wireguardConfiggen;
+}
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'dashboard:self');
@@ -20,15 +29,16 @@ export default defineEventHandler(async (event) => {
 
   const client = await Database.clients.get(clientId);
 
-  if (!client || client.userId !== principal.user.id) {
+  if (!client || client.id !== principal.clientId) {
     throw createError({
-      statusCode: 404,
-      statusMessage: 'Client not found',
+      statusCode: 403,
+      statusMessage: 'Forbidden',
     });
   }
 
   const wgInterface = await Database.interfaces.get();
   const userConfig = await Database.userConfigs.get();
+  const configgen = getConfiggen(wgInterface.engineType);
 
   const config = configgen.generateClientConfig(
     wgInterface,
@@ -39,12 +49,7 @@ export default defineEventHandler(async (event) => {
     }
   );
 
-  setHeader(
-    event,
-    'Content-Disposition',
-    `attachment; filename="${configgen.cleanClientFilename(client.name) || clientId}.conf"`
-  );
-
-  setHeader(event, 'Content-Type', 'application/octet-stream');
-  return config;
+  const svg = encodeQRCode(config);
+  setHeader(event, 'Content-Type', 'image/svg+xml');
+  return svg;
 });

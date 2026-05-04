@@ -96,8 +96,18 @@ describe('requirePermission', () => {
 
   // --- Client / dashboard ---
   it('allows user principal for dashboard:self', async () => {
-    const event = makeEvent({ kind: 'user', user: mockUser(roles.CLIENT) });
+    const event = makeEvent({ kind: 'user', user: mockUser(roles.CLIENT), clientId: 1 });
     await expect(requirePermission(event, 'dashboard:self')).resolves.toBeUndefined();
+  });
+
+  it('denies user principal for admin:settings even if underlying role is ADMIN', async () => {
+    const event = makeEvent({ kind: 'user', user: mockUser(roles.ADMIN), clientId: 1 });
+    await expect(requirePermission(event, 'admin:settings')).rejects.toThrow('Forbidden');
+  });
+
+  it('denies user principal for router:read even if underlying role is ADMIN', async () => {
+    const event = makeEvent({ kind: 'user', user: mockUser(roles.ADMIN), clientId: 1 });
+    await expect(requirePermission(event, 'router:read')).rejects.toThrow('Forbidden');
   });
 
   it('denies client role for router:read', async () => {
@@ -135,6 +145,10 @@ describe('isAdminPrincipal', () => {
 
   it('returns false for token with client role', () => {
     expect(isAdminPrincipal({ kind: 'token', user: { id: 1, role: roles.CLIENT } as any, tokenId: 1, scopes: [] })).toBe(false);
+  });
+
+  it('returns false for user principal even if underlying role is ADMIN', () => {
+    expect(isAdminPrincipal({ kind: 'user', user: { id: 1, role: roles.ADMIN } as any, clientId: 1 })).toBe(false);
   });
 
   it('returns false for null', () => {

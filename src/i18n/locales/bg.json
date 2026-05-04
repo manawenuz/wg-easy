@@ -2,6 +2,7 @@
   "pages": {
     "me": "Профил",
     "clients": "Клиенти",
+    "dashboard": "Табло",
     "admin": {
       "panel": "Админ Панел",
       "general": "Общи",

@@ -43,6 +43,20 @@
       "when": 1777713382964,
       "tag": "0005_tearful_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1777713390000,
+      "tag": "0006_wg_obfuscator",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1777713400000,
+      "tag": "0007_router_passphrase",
+      "breakpoints": true
     }
   ]
 }

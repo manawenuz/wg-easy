@@ -3,6 +3,9 @@ import type { SharedPublicUser } from '~~/shared/utils/permissions';
 import type { Principal } from '~~/server/utils/principal';
 
 export const useAuthStore = defineStore('Auth', () => {
+  // userData.role is the EFFECTIVE role returned by /api/session, which already
+  // demotes dashboard user sessions to CLIENT regardless of the underlying
+  // user row's role. Never trust the raw user.role for UI gating.
   const userData = useState<SharedPublicUser | null>('user-data', () => null);
   const principal = useState<Principal | null>('principal', () => null);
 

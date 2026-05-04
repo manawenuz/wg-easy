@@ -42,13 +42,35 @@ export const definePermissionEventHandler = <
 
     // if no data is required, check permissions
     if (permissions.isBoolean()) {
-      permissions.check();
+      try {
+        permissions.check();
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Permission denied') {
+          throw createError({
+            statusCode: 403,
+            statusMessage: 'Forbidden',
+          });
+        }
+        throw err;
+      }
     }
 
     const response = await handler({
       event,
       user,
-      checkPermissions: permissions.check,
+      checkPermissions: (data?: Permissions[Resource]['dataType']) => {
+        try {
+          return permissions.check(data);
+        } catch (err) {
+          if (err instanceof Error && err.message === 'Permission denied') {
+            throw createError({
+              statusCode: 403,
+              statusMessage: 'Forbidden',
+            });
+          }
+          throw err;
+        }
+      },
     });
 
     // if data is required, make sure permissions were checked

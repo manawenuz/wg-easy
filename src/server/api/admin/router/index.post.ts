@@ -14,6 +14,7 @@ const CreateRouterSchema = z.object({
     apiPassword: z.string().min(1),
     sshUser: z.string().optional().nullable(),
     sshKey: z.string().optional().nullable(),
+    sshPassphrase: z.string().optional().nullable(),
     tlsFingerprint: z.string().optional().nullable(),
   }),
   enabled: z.boolean().optional(),
@@ -35,6 +36,10 @@ export default defineEventHandler(async (event) => {
     tlsFingerprint: body.credentials.tlsFingerprint ?? undefined,
   };
 
+  const sshPassphraseEncrypted = body.credentials.sshPassphrase
+    ? encrypt(body.credentials.sshPassphrase)
+    : null;
+
   const router = await Database.routers.create({
     name: body.name,
     engineType: body.engineType as EngineType,
@@ -42,6 +47,7 @@ export default defineEventHandler(async (event) => {
     host: body.host ?? null,
     port: body.port ?? null,
     credentialsEncrypted: encrypt(JSON.stringify(credentials)),
+    sshPassphraseEncrypted,
     enabled: body.enabled ?? true,
     lastSeen: null,
   });

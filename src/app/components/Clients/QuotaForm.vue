@@ -10,10 +10,14 @@
       />
     </div>
     <FormNumberField
-      id="limitBytes"
-      v-model="form.limitBytes"
-      label="Limit (Bytes)"
+      id="limitGB"
+      v-model="form.limitGB"
+      label="Limit (GB)"
+      step="0.001"
     />
+    <div class="col-span-full text-xs text-gray-500 dark:text-neutral-400">
+      {{ bytesHint }}
+    </div>
     <div class="flex items-center gap-2">
       <FormLabel for="period">Period</FormLabel>
       <BaseSelect
@@ -54,16 +58,25 @@ const { data: quota, refresh } = await useFetch(
 );
 
 const form = ref({
-  limitBytes: 0,
+  limitGB: 0,
   period: 'daily' as 'daily' | 'weekly' | 'monthly',
   autoDisable: true,
+});
+
+const bytesHint = computed(() => {
+  const bytes = Math.round(form.value.limitGB * 1024 * 1024 * 1024);
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const k = 1024;
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `≈ ${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${units[i]}`;
 });
 
 watch(
   quota,
   (q) => {
     if (q) {
-      form.value.limitBytes = q.limitBytes;
+      form.value.limitGB = parseFloat((q.limitBytes / (1024 * 1024 * 1024)).toFixed(3));
       form.value.period = q.period;
       form.value.autoDisable = q.autoDisable;
     }
@@ -87,7 +100,12 @@ const _save = useSubmit(
 );
 
 function save() {
-  return _save(form.value);
+  const limitBytes = Math.round(form.value.limitGB * 1024 * 1024 * 1024);
+  return _save({
+    limitBytes,
+    period: form.value.period,
+    autoDisable: form.value.autoDisable,
+  });
 }
 
 const _remove = useSubmit(
@@ -100,7 +118,7 @@ const _remove = useSubmit(
       if (success) {
         await refresh();
         form.value = {
-          limitBytes: 0,
+          limitGB: 0,
           period: 'daily',
           autoDisable: true,
         };

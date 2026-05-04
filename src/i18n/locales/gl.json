@@ -2,6 +2,7 @@
   "pages": {
     "me": "Conta",
     "clients": "Clientes",
+    "dashboard": "Panel de control",
     "admin": {
       "panel": "Panel de administración",
       "general": "Xeral",

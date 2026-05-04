@@ -2,6 +2,7 @@
   "pages": {
     "me": "Conta",
     "clients": "Clientes",
+    "dashboard": "Painel",
     "admin": {
       "panel": "Panel de administração.",
       "general": "Geral",

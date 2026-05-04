@@ -13,6 +13,7 @@ export async function runQuotaEvaluator() {
     if (!client || !client.enabled) continue;
 
     try {
+      await Database.clients.toggle(q.clientId, false);
       await engine.disablePeer(iface, client.publicKey);
       await quotaService.markDisabledByQuota(q.clientId);
       await Database.auditLogs.create({

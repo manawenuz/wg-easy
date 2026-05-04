@@ -75,15 +75,16 @@ const _submit = useSubmit(
     method: 'delete',
   },
   {
-    revert: async () => {
-      await navigateTo('/login');
-    },
+    revert: async () => {},
     noSuccessToast: true,
   }
 );
 
-function submit() {
-  return _submit(undefined);
+async function submit() {
+  authStore.userData = null;
+  authStore.principal = null;
+  await _submit(undefined);
+  await navigateTo('/login', { replace: true });
 }
 
 const fallbackName = computed(() => {

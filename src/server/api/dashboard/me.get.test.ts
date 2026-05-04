@@ -16,10 +16,10 @@ describe('dashboard/me.get', () => {
   });
 
   type Handler = (event: {
-    context: { principal: { kind: string; user: ReturnType<typeof mockUser> } };
+    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number } };
   }) => Promise<unknown>;
 
-  const makeEvent = (principal: { kind: string; user: ReturnType<typeof mockUser> }) =>
+  const makeEvent = (principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number }) =>
     ({ context: { principal } }) as Parameters<Handler>[0];
 
   beforeAll(() => {
@@ -36,18 +36,22 @@ describe('dashboard/me.get', () => {
     vi.clearAllMocks();
     vi.stubGlobal('Database', {
       clients: {
-        getForUser: vi.fn(async (userId: number) =>
-          userId === 1
-            ? [{ id: 1, name: 'client1' }, { id: 2, name: 'client2' }]
-            : []
-        ),
+        get: vi.fn(async (clientId: number) => {
+          if (clientId === 1) {
+            return { id: 1, name: 'client1', userId: 1 };
+          }
+          if (clientId === 99) {
+            return undefined;
+          }
+          return undefined;
+        }),
       },
     });
   });
 
-  it('returns user info and clients count for user principal', async () => {
+  it('returns client info and clients count for user principal', async () => {
     const meHandler = (await import('./me.get')).default as Handler;
-    const event = makeEvent({ kind: 'user', user: mockUser(1, 2) });
+    const event = makeEvent({ kind: 'user', user: mockUser(1, 2), clientId: 1 });
     const result = (await meHandler(event)) as {
       user: { id: number; name: string; email: string | null };
       clientsCount: number;
@@ -55,26 +59,22 @@ describe('dashboard/me.get', () => {
 
     expect(result.user).toEqual({
       id: 1,
-      name: 'User 1',
+      name: 'client1',
       email: 'user@example.com',
     });
-    expect(result.clientsCount).toBe(2);
+    expect(result.clientsCount).toBe(1);
   });
 
-  it('returns clients count 0 when user has no clients', async () => {
+  it('returns 404 when client is not found', async () => {
     const meHandler = (await import('./me.get')).default as Handler;
-    const event = makeEvent({ kind: 'user', user: mockUser(99, 2) });
-    const result = (await meHandler(event)) as {
-      user: { id: number; name: string; email: string | null };
-      clientsCount: number;
-    };
+    const event = makeEvent({ kind: 'user', user: mockUser(99, 2), clientId: 99 });
 
-    expect(result.clientsCount).toBe(0);
+    await expect(meHandler(event)).rejects.toThrow('Client not found');
   });
 
   it('rejects admin principal', async () => {
     const meHandler = (await import('./me.get')).default as Handler;
-    const event = makeEvent({ kind: 'admin', user: mockUser(1, 1) });
+    const event = makeEvent({ kind: 'admin', user: mockUser(1, 1), clientId: 1 });
 
     await expect(meHandler(event)).rejects.toThrow('Forbidden');
   });

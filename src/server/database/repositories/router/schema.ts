@@ -13,6 +13,7 @@ export const router = sqliteTable('router', {
   host: text('host'),
   port: integer('port'),
   credentialsEncrypted: text('credentials_encrypted'),
+  sshPassphraseEncrypted: text('ssh_passphrase_encrypted'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   lastSeen: integer('last_seen', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' })

@@ -2,9 +2,11 @@ services:
   wg-easy:
     build:
       dockerfile: ./Dockerfile.dev
-    command: dev
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["sh /app/init-ifb.sh && exec pnpm run dev"]
     volumes:
       - ./src/:/app/
+      - ./init-ifb.sh:/app/init-ifb.sh:ro
       - temp:/app/.nuxt/
       - temp1:/app/node_modules/
       - /lib/modules:/lib/modules:ro
@@ -17,7 +19,7 @@ services:
       - SYS_MODULE
     environment:
       - INIT_ENABLED=true
-      - INIT_HOST=test
+      - INIT_HOST=178.105.64.108
       - INIT_PORT=51820
       - INIT_USERNAME=testtest
       - INIT_PASSWORD=Qweasdyxcv!2

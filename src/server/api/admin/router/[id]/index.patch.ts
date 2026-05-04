@@ -15,6 +15,7 @@ const UpdateRouterSchema = z.object({
       apiPassword: z.string().min(1),
       sshUser: z.string().optional().nullable(),
       sshKey: z.string().optional().nullable(),
+      sshPassphrase: z.string().optional().nullable(),
       tlsFingerprint: z.string().optional().nullable(),
     })
     .optional(),
@@ -57,6 +58,9 @@ export default defineEventHandler(async (event) => {
       tlsFingerprint: body.credentials.tlsFingerprint ?? undefined,
     };
     updateData.credentialsEncrypted = encrypt(JSON.stringify(credentials));
+    if (body.credentials.sshPassphrase) {
+      updateData.sshPassphraseEncrypted = encrypt(body.credentials.sshPassphrase);
+    }
   }
 
   const router = await Database.routers.update(id, updateData);

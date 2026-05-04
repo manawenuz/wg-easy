@@ -26,7 +26,7 @@ import { WgObfuscatorConfigService } from './repositories/wgObfuscatorConfig/ser
 
 const DB_DEBUG = debug('Database');
 
-const client = createClient({ url: 'file:/etc/wireguard/wg-easy.db' });
+const client = createClient({ url: process.env.DATABASE_URL || 'file:/etc/wireguard/wg-easy.db' });
 const db = drizzle({ client, schema });
 
 export async function connect() {
