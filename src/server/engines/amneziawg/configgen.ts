@@ -121,9 +121,9 @@ PostDown = ${iptablesTemplate(hooks.postDown, wgInterface)}`;
       dnsServers.length > 0 ? `DNS = ${dnsServers.join(', ')}` : null;
 
     const parameters = {
-      Jc: client.jC,
-      Jmin: client.jMin,
-      Jmax: client.jMax,
+      Jc: client.jC ?? wgInterface.jC,
+      Jmin: client.jMin ?? wgInterface.jMin,
+      Jmax: client.jMax ?? wgInterface.jMax,
       S1: wgInterface.s1,
       S2: wgInterface.s2,
       S3: wgInterface.s3,
@@ -132,11 +132,11 @@ PostDown = ${iptablesTemplate(hooks.postDown, wgInterface)}`;
       H2: wgInterface.h2,
       H3: wgInterface.h3,
       H4: wgInterface.h4,
-      I1: client.i1,
-      I2: client.i2,
-      I3: client.i3,
-      I4: client.i4,
-      I5: client.i5,
+      I1: client.i1 ?? wgInterface.i1,
+      I2: client.i2 ?? wgInterface.i2,
+      I3: client.i3 ?? wgInterface.i3,
+      I4: client.i4 ?? wgInterface.i4,
+      I5: client.i5 ?? wgInterface.i5,
     } as const;
 
     const awgLines = Object.entries(parameters)

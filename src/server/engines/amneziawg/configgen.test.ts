@@ -161,4 +161,27 @@ describe('amneziawg configgen', () => {
     expect(config).toContain('I1 = 11111');
     expect(config).toContain('I2 = 22222');
   });
+
+  it('generateClientConfig falls back to interface defaults when client AWG params are null', () => {
+    // mockClient has all AWG params null; mockInterface has jC=7, jMin=10, jMax=1000
+    const config = configgen.generateClientConfig(
+      mockInterface as any,
+      mockUserConfig as any,
+      mockClient as any
+    );
+    expect(config).toContain('Jc = 7');
+    expect(config).toContain('Jmin = 10');
+    expect(config).toContain('Jmax = 1000');
+  });
+
+  it('generateClientConfig client value overrides interface default', () => {
+    const clientWithOverride = { ...mockClient, jC: 100 };
+    const config = configgen.generateClientConfig(
+      mockInterface as any,
+      mockUserConfig as any,
+      clientWithOverride as any
+    );
+    expect(config).toContain('Jc = 100');
+    expect(config).not.toContain('Jc = 7');
+  });
 });
