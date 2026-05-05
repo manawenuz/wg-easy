@@ -9,6 +9,7 @@ const ObfuscationSchema = z.object({
   key: z.string().optional().nullable(),
   dummyPaddingMin: z.number().int().min(0).max(1024).optional().nullable(),
   dummyPaddingMax: z.number().int().min(0).max(1024).optional().nullable(),
+  deployEnabled: z.boolean().optional().default(false),
 });
 
 export default definePermissionEventHandler(
@@ -51,6 +52,7 @@ export default definePermissionEventHandler(
         key: body.key ?? undefined,
         dummyPaddingMin: body.dummyPaddingMin ?? undefined,
         dummyPaddingMax: body.dummyPaddingMax ?? undefined,
+        deployEnabled: body.deployEnabled,
       });
 
       if (existing) {
@@ -60,6 +62,7 @@ export default definePermissionEventHandler(
           key: deployResult.key,
           dummyPaddingMin: deployResult.dummyPaddingMin,
           dummyPaddingMax: deployResult.dummyPaddingMax,
+          deployEnabled: deployResult.deployEnabled,
         });
       } else {
         await Database.wgObfuscatorConfigs.create({
@@ -69,6 +72,7 @@ export default definePermissionEventHandler(
           key: deployResult.key,
           dummyPaddingMin: deployResult.dummyPaddingMin,
           dummyPaddingMax: deployResult.dummyPaddingMax,
+          deployEnabled: deployResult.deployEnabled,
         });
       }
 

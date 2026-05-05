@@ -29,16 +29,42 @@ export default definePermissionEventHandler(
 
     const wgInterface = await Database.interfaces.get();
     const userConfig = await Database.userConfigs.get();
+    const obfuscatorConfig =
+      wgInterface.engineType === 'mikrotik'
+        ? await Database.wgObfuscatorConfigs.get(wgInterface.name)
+        : null;
+
     const configgen = getConfiggen(wgInterface.engineType);
 
-    const config = configgen.generateClientConfig(
+    let config = configgen.generateClientConfig(
       wgInterface,
       userConfig,
       client,
       {
         enableIpv6: !WG_ENV.DISABLE_IPV6,
+        engineType: wgInterface.engineType,
+        endpointPort: obfuscatorConfig?.listenPort ?? undefined,
       }
     );
+
+    if (obfuscatorConfig) {
+      const instructions = `
+# --- Obfuscation Instructions ---
+# This interface uses wg-obfuscator for DPI evasion.
+# You must run wg-obfuscator on your client device.
+# 1. Download wg-obfuscator: https://github.com/ClusterM/wg-obfuscator
+# 2. Use the following configuration for your local wg-obfuscator:
+#
+# [main]
+# source-lport = 51830
+# target = ${userConfig.host}:${obfuscatorConfig.listenPort}
+# key = ${obfuscatorConfig.key}
+# verbose = 2
+#
+# 3. Change the Endpoint in your WireGuard app to: 127.0.0.1:51830
+`;
+      config += `\n${instructions}`;
+    }
 
     setHeader(
       event,

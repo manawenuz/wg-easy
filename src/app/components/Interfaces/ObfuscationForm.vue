@@ -2,14 +2,14 @@
   <BaseDialog trigger-class="inline-block">
     <template #trigger>
       <FormSecondaryActionField
-        :label="t('admin.obfuscation.title')"
+        :label="t('obfuscation.title')"
         class="text-sm"
       />
     </template>
 
-    <template #title>{{ t('admin.obfuscation.title') }}</template>
+    <template #title>{{ t('obfuscation.title') }}</template>
     <template #description>
-      {{ t('admin.obfuscation.description', { iface: interfaceName }) }}
+      {{ t('obfuscation.description', { iface: interfaceName }) }}
     </template>
 
     <FormElement @submit.prevent="submit">
@@ -17,39 +17,46 @@
         <FormSwitchField
           id="enabled"
           v-model="form.enabled"
-          :label="t('admin.obfuscation.enabled')"
+          :label="t('obfuscation.enabled')"
+        />
+        <FormSwitchField
+          v-if="form.enabled"
+          id="deployEnabled"
+          v-model="form.deployEnabled"
+          :label="t('obfuscation.deployEnabled')"
+          :description="t('obfuscation.deployEnabledDesc')"
         />
       </FormGroup>
 
       <FormGroup v-if="form.enabled">
-        <FormHeading>{{ t('admin.obfuscation.advanced') }}</FormHeading>
+        <FormHeading>{{ t('obfuscation.advanced') }}</FormHeading>
         <FormNumberField
           id="listenPort"
           v-model="form.listenPort"
-          :label="t('admin.obfuscation.listenPort')"
-          :description="t('admin.obfuscation.listenPortDesc')"
+          :label="t('obfuscation.listenPort')"
+          :description="t('obfuscation.listenPortDesc')"
         />
         <FormNumberField
           id="wgTargetPort"
           v-model="form.wgTargetPort"
-          :label="t('admin.obfuscation.wgTargetPort')"
-          :description="t('admin.obfuscation.wgTargetPortDesc')"
+          :label="t('obfuscation.wgTargetPort')"
+          :description="t('obfuscation.wgTargetPortDesc')"
         />
         <FormTextField
           id="key"
           v-model="form.key"
-          :label="t('admin.obfuscation.key')"
-          :description="t('admin.obfuscation.keyDesc')"
+          :label="t('obfuscation.key')"
+          :description="t('obfuscation.keyDesc')"
         />
         <FormNumberField
           id="dummyPaddingMin"
           v-model="form.dummyPaddingMin"
-          :label="t('admin.obfuscation.dummyPaddingMin')"
+          :label="t('obfuscation.dummyPaddingMin')"
         />
         <FormNumberField
           id="dummyPaddingMax"
           v-model="form.dummyPaddingMax"
-          :label="t('admin.obfuscation.dummyPaddingMax')"
+          :label="t('obfuscation.dummyPaddingMax')"
         />
       </FormGroup>
 
@@ -73,6 +80,7 @@ interface ObfuscationData {
   key: string | null;
   dummyPaddingMin: number | null;
   dummyPaddingMax: number | null;
+  deployEnabled: boolean;
 }
 
 const props = defineProps<{
@@ -90,6 +98,7 @@ const form = ref({
   key: props.initialData?.key ?? '',
   dummyPaddingMin: props.initialData?.dummyPaddingMin ?? 8,
   dummyPaddingMax: props.initialData?.dummyPaddingMax ?? 64,
+  deployEnabled: props.initialData?.deployEnabled ?? false,
 });
 
 const dialogOpen = ref(false);
@@ -106,6 +115,7 @@ async function submit() {
     key: form.value.enabled ? (form.value.key || null) : null,
     dummyPaddingMin: form.value.enabled ? form.value.dummyPaddingMin : null,
     dummyPaddingMax: form.value.enabled ? form.value.dummyPaddingMax : null,
+    deployEnabled: form.value.enabled ? form.value.deployEnabled : false,
   };
 
   await $fetch(`/api/admin/interface/${props.interfaceName}/obfuscation`, {

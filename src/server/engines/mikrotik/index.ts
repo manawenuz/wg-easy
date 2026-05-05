@@ -316,12 +316,14 @@ export class MikrotikEngine implements VpnEngine {
     opts: DeployOptions
   ): Promise<ObfuscatorConfig> {
     const router = await this.#requireRouter(iface);
-    return deployObfuscator(router, opts);
+    const api = await this.#getApi(router);
+    return deployObfuscator(api, opts);
   }
 
   async removeObfuscator(iface: InterfaceType): Promise<void> {
     const router = await this.#requireRouter(iface);
-    return removeObfuscator(router);
+    const api = await this.#getApi(router);
+    return removeObfuscator(api);
   }
 
   generateClientObfuscatorConfig(

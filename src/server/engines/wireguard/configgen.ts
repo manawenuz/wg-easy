@@ -12,6 +12,7 @@ import type { Hooks } from '../types';
 type Options = {
   enableIpv6?: boolean;
   engineType?: string;
+  endpointPort?: number;
 };
 
 function shouldIncludeAmneziaParams(engineType?: string): boolean {
@@ -172,7 +173,7 @@ PublicKey = ${wgInterface.publicKey}
 PresharedKey = ${client.preSharedKey}
 AllowedIPs = ${(client.allowedIps ?? userConfig.defaultAllowedIps).join(', ')}
 PersistentKeepalive = ${client.persistentKeepalive}
-Endpoint = ${userConfig.host}:${userConfig.port}`;
+Endpoint = ${userConfig.host}:${options.endpointPort ?? userConfig.port}`;
   },
 
   cleanClientFilename(name: string): string {

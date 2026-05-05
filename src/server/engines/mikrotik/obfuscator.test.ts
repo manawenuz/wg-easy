@@ -1,150 +1,110 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { deployObfuscator, removeObfuscator, generateClientObfuscatorConfig } from './obfuscator';
-import type { RouterType } from '#db/repositories/router/types';
 
+const mockPrint = vi.fn();
+const mockWrite = vi.fn();
+const mockSet = vi.fn();
+const mockRemove = vi.fn();
 const mockExec = vi.fn();
-const mockClose = vi.fn();
 
-vi.mock('../../transports/ssh', () => {
-  return {
-    SshTransport: class MockSshTransport {
-      exec = mockExec;
-      close = mockClose;
-    },
-  };
-});
-
-function makeRouter(overrides: Partial<RouterType> = {}): RouterType {
-  return {
-    id: 1,
-    name: 'test-router',
-    engineType: 'mikrotik',
-    transport: 'routeros-api',
-    host: '192.168.1.1',
-    port: 8729,
-    credentialsEncrypted: null,
-    enabled: true,
-    lastSeen: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
-}
+const mockTransport = {
+  print: mockPrint,
+  write: mockWrite,
+  set: mockSet,
+  remove: mockRemove,
+  exec: mockExec,
+};
 
 describe('deployObfuscator', () => {
   beforeEach(() => {
-    mockExec.mockReset();
-    mockClose.mockReset();
+    vi.resetAllMocks();
   });
 
-  it('creates all resources on a fresh router', async () => {
-    const commands: string[] = [];
-    mockExec.mockImplementation(async (cmd: string) => {
-      commands.push(cmd);
-      if (cmd.includes('/interface/veth/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/ip/address/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/container/mounts/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/container/print count-only where name')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/container/print count-only where name') && cmd.includes('status')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/ip/firewall/nat/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/file/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      return { stdout: '', stderr: '', code: 0 };
+  it('creates all resources on a fresh router when deployEnabled is true', async () => {
+    let containerExists = false;
+    mockPrint.mockImplementation(async (path, query) => {
+      if (path === '/container') {
+        if (query?.status === 'running') return [];
+        if (containerExists) return [{ id: '1', '.id': '1' }];
+        containerExists = true; // Next time it will "exist"
+        return [];
+      }
+      return [];
     });
+    mockWrite.mockResolvedValue({});
+    mockExec.mockResolvedValue({});
 
-    const router = makeRouter();
-    const result = await deployObfuscator(router, {
+    const result = await deployObfuscator(mockTransport as any, {
       ifaceName: 'wg-easy',
       listenPort: 51830,
       wgTargetPort: 51820,
+      deployEnabled: true,
     });
 
     expect(result.listenPort).toBe(51830);
-    expect(result.wgTargetPort).toBe(51820);
-    expect(result.interfaceId).toBe('wg-easy');
-    expect(result.key).toBeDefined();
-    expect(result.key.length).toBeGreaterThan(0);
+    expect(result.deployEnabled).toBe(true);
 
-    expect(commands.some((c) => c.includes('/interface/veth/add'))).toBe(true);
-    expect(commands.some((c) => c.includes('/ip/address/add'))).toBe(true);
-    expect(commands.some((c) => c.includes('/container/mounts/add'))).toBe(true);
-    expect(commands.some((c) => c.includes('/container/add'))).toBe(true);
-    expect(commands.some((c) => c.includes('/container/start'))).toBe(true);
-    expect(commands.some((c) => c.includes('/ip/firewall/nat/add'))).toBe(true);
+    expect(mockWrite).toHaveBeenCalledWith('/interface/veth', expect.any(Object));
+    expect(mockWrite).toHaveBeenCalledWith('/ip/address', expect.any(Object));
+    expect(mockWrite).toHaveBeenCalledWith('/container/mounts', expect.any(Object));
+    expect(mockWrite).toHaveBeenCalledWith('/container', expect.any(Object));
+    expect(mockExec).toHaveBeenCalledWith('/file', 'add', expect.any(Object));
+    expect(mockExec).toHaveBeenCalledWith('/container', 'start', expect.any(Object));
+    expect(mockWrite).toHaveBeenCalledWith('/ip/firewall/nat', expect.any(Object));
   });
 
-  it('skips existing resources on idempotent re-run', async () => {
-    const commands: string[] = [];
-    mockExec.mockImplementation(async (cmd: string) => {
-      commands.push(cmd);
-      if (cmd.includes('/interface/veth/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/ip/address/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/container/mounts/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/container/print count-only where name') && cmd.includes('status')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/container/print count-only where name="wg-obfuscator"')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/ip/firewall/nat/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/file/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      return { stdout: '', stderr: '', code: 0 };
-    });
-
-    const router = makeRouter();
-    await deployObfuscator(router, {
+  it('skips deployment when deployEnabled is false', async () => {
+    const result = await deployObfuscator(mockTransport as any, {
       ifaceName: 'wg-easy',
       listenPort: 51830,
       wgTargetPort: 51820,
+      deployEnabled: false,
     });
 
-    expect(commands.some((c) => c.includes('/interface/veth/add'))).toBe(false);
-    expect(commands.some((c) => c.includes('/container/add'))).toBe(false);
-    expect(commands.some((c) => c.includes('/ip/firewall/nat/add'))).toBe(false);
+    expect(result.deployEnabled).toBe(false);
+    expect(mockPrint).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
+  });
+
+  it('skips existing resources on idempotent re-run', async () => {
+    mockPrint.mockImplementation(async (path, query) => {
+      if (path === '/container' && query?.status === 'running') return [{ id: '1', status: 'running' }];
+      return [{ id: '1', name: 'veth-wg-ob' }];
+    });
+
+    await deployObfuscator(mockTransport as any, {
+      ifaceName: 'wg-easy',
+      listenPort: 51830,
+      wgTargetPort: 51820,
+      deployEnabled: true,
+    });
+
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 });
 
 describe('removeObfuscator', () => {
   beforeEach(() => {
-    mockExec.mockReset();
-    mockClose.mockReset();
+    vi.resetAllMocks();
   });
 
   it('removes all obfuscator resources', async () => {
-    const commands: string[] = [];
-    mockExec.mockImplementation(async (cmd: string) => {
-      commands.push(cmd);
-      if (cmd.includes('/container/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/container/mounts/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/ip/firewall/nat/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/interface/veth/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      if (cmd.includes('/file/print count-only')) return { stdout: '1', stderr: '', code: 0 };
-      return { stdout: '', stderr: '', code: 0 };
-    });
+    mockPrint.mockResolvedValue([{ id: '*1', '.id': '*1' }]);
+    mockRemove.mockResolvedValue({});
 
-    const router = makeRouter();
-    await removeObfuscator(router);
+    await removeObfuscator(mockTransport as any);
 
-    expect(commands.some((c) => c.includes('/container/stop'))).toBe(true);
-    expect(commands.some((c) => c.includes('/container/remove'))).toBe(true);
-    expect(commands.some((c) => c.includes('/container/mounts/remove'))).toBe(true);
-    expect(commands.some((c) => c.includes('/ip/firewall/nat/remove'))).toBe(true);
-    expect(commands.some((c) => c.includes('/interface/veth/remove'))).toBe(true);
-    expect(commands.some((c) => c.includes('/file/remove'))).toBe(true);
+    expect(mockRemove).toHaveBeenCalledWith('/container', '*1');
+    expect(mockRemove).toHaveBeenCalledWith('/interface/veth', '*1');
+    expect(mockRemove).toHaveBeenCalledWith('/file', expect.any(String));
   });
 
   it('is idempotent when nothing exists', async () => {
-    const commands: string[] = [];
-    mockExec.mockImplementation(async (cmd: string) => {
-      commands.push(cmd);
-      if (cmd.includes('/container/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/container/mounts/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/ip/firewall/nat/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/interface/veth/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      if (cmd.includes('/file/print count-only')) return { stdout: '0', stderr: '', code: 0 };
-      return { stdout: '', stderr: '', code: 0 };
-    });
+    mockPrint.mockResolvedValue([]);
 
-    const router = makeRouter();
-    await removeObfuscator(router);
+    await removeObfuscator(mockTransport as any);
 
-    expect(commands.some((c) => c.includes('/container/remove'))).toBe(false);
-    expect(commands.some((c) => c.includes('/interface/veth/remove'))).toBe(false);
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
 
@@ -157,6 +117,7 @@ describe('generateClientObfuscatorConfig', () => {
       key: 'test-key-123',
       dummyPaddingMin: 8,
       dummyPaddingMax: 64,
+      deployEnabled: true,
     });
 
     expect(config).toContain('router.example.com:51830');

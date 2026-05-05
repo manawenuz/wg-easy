@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import { SshTransport } from '../../transports/ssh';
-import { decrypt } from '../../utils/crypto';
-import type { RouterType } from '#db/repositories/router/types';
+import type { RouterOsApiTransport } from '../../transports/routeros-api';
+import type { RouterOsSshTransport } from '../../transports/routeros-ssh';
+
+export type MikrotikTransport = RouterOsApiTransport | RouterOsSshTransport;
 
 export interface ObfuscatorConfig {
   interfaceId: string;
@@ -10,6 +11,7 @@ export interface ObfuscatorConfig {
   key: string;
   dummyPaddingMin: number;
   dummyPaddingMax: number;
+  deployEnabled: boolean;
 }
 
 export interface DeployOptions {
@@ -19,6 +21,7 @@ export interface DeployOptions {
   key?: string;
   dummyPaddingMin?: number;
   dummyPaddingMax?: number;
+  deployEnabled?: boolean;
 }
 
 const VETH_HOST_IP = '172.17.13.1';
@@ -28,56 +31,6 @@ const CONTAINER_NAME = 'wg-obfuscator';
 const MOUNT_NAME = 'wg-obfuscator-config';
 const CONFIG_DIR = '/wg-obfuscator';
 const CONFIG_FILE = `${CONFIG_DIR}/wg-obfuscator.conf`;
-
-function makeSshTransport(router: RouterType): SshTransport {
-  const creds = parseCredentials(router);
-  const auth = creds.sshKey
-    ? {
-        type: 'key' as const,
-        privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8'),
-        ...(router.sshPassphraseEncrypted ? { passphrase: decrypt(router.sshPassphraseEncrypted) } : {}),
-      }
-    : { type: 'password' as const, password: creds.apiPassword ?? '' };
-
-  return new SshTransport({
-    host: router.host ?? 'localhost',
-    port: router.port ?? 22,
-    user: creds.sshUser ?? creds.apiUser ?? 'admin',
-    auth,
-  });
-}
-
-function parseCredentials(router: RouterType): {
-  apiUser?: string;
-  apiPassword?: string;
-  sshUser?: string;
-  sshKey?: string;
-  sshPassphraseEncrypted?: string;
-} {
-  if (!router.credentialsEncrypted) {
-    return {};
-  }
-  try {
-    const decrypted = decrypt(router.credentialsEncrypted);
-    return JSON.parse(decrypted);
-  } catch {
-    return {};
-  }
-}
-
-async function execAssert(ssh: SshTransport, cmd: string): Promise<string> {
-  const { stdout, stderr, code } = await ssh.exec(cmd);
-  if (code !== 0 && code !== null) {
-    const err = stderr || stdout || `Command exited with code ${code}`;
-    throw new Error(err);
-  }
-  return stdout;
-}
-
-function parseCount(stdout: string): number {
-  const n = Number.parseInt(stdout.trim(), 10);
-  return Number.isNaN(n) ? 0 : n;
-}
 
 function generateConfig(opts: DeployOptions): string {
   const key = opts.key ?? randomBytes(16).toString('base64');
@@ -92,163 +45,159 @@ max-dummy = ${maxDummy}
 }
 
 export async function deployObfuscator(
-  router: RouterType,
+  transport: MikrotikTransport,
   opts: DeployOptions
 ): Promise<ObfuscatorConfig> {
-  const ssh = makeSshTransport(router);
   const key = opts.key ?? randomBytes(16).toString('base64');
 
-  try {
+  if (opts.deployEnabled) {
     // 1. Ensure veth interface exists
-    const vethExists = parseCount(
-      await execAssert(ssh, `/interface/veth/print count-only where name="${VETH_NAME}"`)
-    );
-    if (vethExists === 0) {
-      await execAssert(
-        ssh,
-        `/interface/veth/add name="${VETH_NAME}" address="${VETH_CONTAINER_IP}/24" gateway="${VETH_HOST_IP}"`
-      );
+    const veths = await transport.print('/interface/veth', { name: VETH_NAME });
+    if (veths.length === 0) {
+      await transport.write('/interface/veth', {
+        name: VETH_NAME,
+        address: `${VETH_CONTAINER_IP}/24`,
+        gateway: VETH_HOST_IP,
+      });
     }
 
     // 2. Ensure IP address on veth
-    const ipExists = parseCount(
-      await execAssert(ssh, `/ip/address/print count-only where interface="${VETH_NAME}"`)
-    );
-    if (ipExists === 0) {
-      await execAssert(
-        ssh,
-        `/ip/address/add address="${VETH_HOST_IP}/24" interface="${VETH_NAME}"`
-      );
+    const ips = await transport.print('/ip/address', { interface: VETH_NAME });
+    if (ips.length === 0) {
+      await transport.write('/ip/address', {
+        address: `${VETH_HOST_IP}/24`,
+        interface: VETH_NAME,
+      });
     }
 
-    // 3. Ensure config directory exists
-    await execAssert(ssh, `/file/print count-only where name="wg-obfuscator"`);
-    // Directory creation is implicit when we write the file
-
-    // 4. Ensure mount point exists
-    const mountExists = parseCount(
-      await execAssert(ssh, `/container/mounts/print count-only where name="${MOUNT_NAME}"`)
-    );
-    if (mountExists === 0) {
-      await execAssert(
-        ssh,
-        `/container/mounts/add name="${MOUNT_NAME}" src="${CONFIG_DIR}" dst="/etc/wg-obfuscator"`
-      );
+    // 3. Ensure mount point exists
+    const mounts = await transport.print('/container/mounts', { name: MOUNT_NAME });
+    if (mounts.length === 0) {
+      await transport.write('/container/mounts', {
+        name: MOUNT_NAME,
+        src: CONFIG_DIR,
+        dst: '/etc/wg-obfuscator',
+      });
     }
 
-    // 5. Ensure container exists
-    const containerExists = parseCount(
-      await execAssert(ssh, `/container/print count-only where name="${CONTAINER_NAME}"`)
-    );
-    if (containerExists === 0) {
-      await execAssert(
-        ssh,
-        `/container/add interface="${VETH_NAME}" logging=yes mounts="${MOUNT_NAME}" name="${CONTAINER_NAME}" root-dir="wg-obfuscator-data" start-on-boot=yes remote-image="clustermeerkat/wg-obfuscator:latest"`
-      );
+    // 4. Ensure container exists
+    const containers = await transport.print('/container', { name: CONTAINER_NAME });
+    if (containers.length === 0) {
+      await transport.write('/container', {
+        name: CONTAINER_NAME,
+        interface: VETH_NAME,
+        logging: 'yes',
+        mounts: MOUNT_NAME,
+        'root-dir': 'wg-obfuscator-data',
+        'start-on-boot': 'yes',
+        'remote-image': 'clustermeerkat/wg-obfuscator:latest',
+      });
     }
 
-    // 6. Write config file
+    // 5. Write config file
     const config = generateConfig({ ...opts, key });
-    // Use /file/set to write content if file exists, or create via echo
-    const fileExists = parseCount(
-      await execAssert(ssh, `/file/print count-only where name="wg-obfuscator/wg-obfuscator.conf"`)
-    );
-    if (fileExists === 0) {
-      // Create file using /file/add doesn't support content directly.
-      // Use a shell redirect via SSH exec
-      await execAssert(ssh, `:put "${config.replace(/"/g, '\\"')}" > ${CONFIG_FILE}`);
+    const files = await transport.print('/file', { name: 'wg-obfuscator/wg-obfuscator.conf' });
+    if (files.length === 0) {
+      await transport.exec('/file', 'add', {
+        name: 'wg-obfuscator/wg-obfuscator.conf',
+        contents: config,
+      });
     } else {
-      await execAssert(ssh, `/file/set [find name="wg-obfuscator/wg-obfuscator.conf"] contents="${config.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`);
+      const id = String(files[0]!['.id'] ?? files[0]!.id ?? files[0]!.name);
+      await transport.set('/file', id, { contents: config });
     }
 
-    // 7. Start container if not running
-    const containerRunning = parseCount(
-      await execAssert(ssh, `/container/print count-only where name="${CONTAINER_NAME}" and status="running"`)
-    );
-    if (containerRunning === 0) {
-      await execAssert(ssh, `/container/start [find name="${CONTAINER_NAME}"]`);
+    // 6. Start container if not running
+    const running = await transport.print('/container', {
+      name: CONTAINER_NAME,
+      status: 'running',
+    });
+    if (running.length === 0) {
+      const allContainers = await transport.print('/container', { name: CONTAINER_NAME });
+      if (allContainers.length > 0) {
+        const id = String(allContainers[0]!['.id'] ?? allContainers[0]!.id);
+        await transport.exec('/container', 'start', { '.id': id });
+      }
     }
 
-    // 8. Ensure dstnat rule exists
-    const natExists = parseCount(
-      await execAssert(
-        ssh,
-        `/ip/firewall/nat/print count-only where comment="wg-easy:obfuscator"`
-      )
-    );
-    if (natExists === 0) {
-      await execAssert(
-        ssh,
-        `/ip/firewall/nat/add chain=dstnat protocol=udp dst-port=${opts.listenPort} action=dst-nat to-addresses="${VETH_CONTAINER_IP}" to-ports=${opts.listenPort} comment="wg-easy:obfuscator"`
-      );
+    // 7. Ensure dstnat rule exists
+    const nats = await transport.print('/ip/firewall/nat', {
+      comment: 'wg-easy:obfuscator',
+    });
+    if (nats.length === 0) {
+      await transport.write('/ip/firewall/nat', {
+        chain: 'dstnat',
+        protocol: 'udp',
+        'dst-port': opts.listenPort,
+        action: 'dst-nat',
+        'to-addresses': VETH_CONTAINER_IP,
+        'to-ports': opts.listenPort,
+        comment: 'wg-easy:obfuscator',
+      });
     }
-
-    return {
-      interfaceId: opts.ifaceName,
-      listenPort: opts.listenPort,
-      wgTargetPort: opts.wgTargetPort,
-      key,
-      dummyPaddingMin: opts.dummyPaddingMin ?? 8,
-      dummyPaddingMax: opts.dummyPaddingMax ?? 64,
-    };
-  } finally {
-    await ssh.close();
   }
+
+  return {
+    interfaceId: opts.ifaceName,
+    listenPort: opts.listenPort,
+    wgTargetPort: opts.wgTargetPort,
+    key,
+    dummyPaddingMin: opts.dummyPaddingMin ?? 8,
+    dummyPaddingMax: opts.dummyPaddingMax ?? 64,
+    deployEnabled: opts.deployEnabled ?? false,
+  };
 }
 
-export async function removeObfuscator(router: RouterType): Promise<void> {
-  const ssh = makeSshTransport(router);
-
-  try {
-    // 1. Stop container if running
-    const containerRunning = parseCount(
-      await execAssert(ssh, `/container/print count-only where name="${CONTAINER_NAME}" and status="running"`)
-    );
-    if (containerRunning > 0) {
-      await execAssert(ssh, `/container/stop [find name="${CONTAINER_NAME}"]`);
+export async function removeObfuscator(transport: MikrotikTransport): Promise<void> {
+  // 1. Stop and remove container
+  const containers = await transport.print('/container', { name: CONTAINER_NAME });
+  if (containers.length > 0) {
+    const id = String(containers[0]!['.id'] ?? containers[0]!.id);
+    if (containers[0]!.status === 'running') {
+      await transport.exec('/container', 'stop', { '.id': id });
     }
+    await transport.remove('/container', id);
+  }
 
-    // 2. Remove container
-    const containerExists = parseCount(
-      await execAssert(ssh, `/container/print count-only where name="${CONTAINER_NAME}"`)
-    );
-    if (containerExists > 0) {
-      await execAssert(ssh, `/container/remove [find name="${CONTAINER_NAME}"]`);
-    }
+  // 2. Remove mount point
+  const mounts = await transport.print('/container/mounts', { name: MOUNT_NAME });
+  if (mounts.length > 0) {
+    const id = String(mounts[0]!['.id'] ?? mounts[0]!.id);
+    await transport.remove('/container/mounts', id);
+  }
 
-    // 3. Remove mount point
-    const mountExists = parseCount(
-      await execAssert(ssh, `/container/mounts/print count-only where name="${MOUNT_NAME}"`)
-    );
-    if (mountExists > 0) {
-      await execAssert(ssh, `/container/mounts/remove [find name="${MOUNT_NAME}"]`);
+  // 3. Remove dstnat rules
+  const nats = await transport.print('/ip/firewall/nat', {
+    comment: 'wg-easy:obfuscator',
+  });
+  if (nats.length > 0) {
+    for (const nat of nats) {
+      const id = String(nat['.id'] ?? nat.id);
+      await transport.remove('/ip/firewall/nat', id);
     }
+  }
 
-    // 4. Remove dstnat rules
-    const natExists = parseCount(
-      await execAssert(ssh, `/ip/firewall/nat/print count-only where comment="wg-easy:obfuscator"`)
-    );
-    if (natExists > 0) {
-      await execAssert(ssh, `/ip/firewall/nat/remove [find comment="wg-easy:obfuscator"]`);
-    }
+  // 4. Remove veth interface
+  const veths = await transport.print('/interface/veth', { name: VETH_NAME });
+  if (veths.length > 0) {
+    const id = String(veths[0]!['.id'] ?? veths[0]!.id);
+    await transport.remove('/interface/veth', id);
+  }
 
-    // 5. Remove veth interface
-    const vethExists = parseCount(
-      await execAssert(ssh, `/interface/veth/print count-only where name="${VETH_NAME}"`)
-    );
-    if (vethExists > 0) {
-      await execAssert(ssh, `/interface/veth/remove [find name="${VETH_NAME}"]`);
+  // 5. Remove IP address
+  const ips = await transport.print('/ip/address', { interface: VETH_NAME });
+  if (ips.length > 0) {
+    for (const ip of ips) {
+      const id = String(ip['.id'] ?? ip.id);
+      await transport.remove('/ip/address', id);
     }
+  }
 
-    // 6. Remove config directory (best effort)
-    const fileExists = parseCount(
-      await execAssert(ssh, `/file/print count-only where name="wg-obfuscator"`)
-    );
-    if (fileExists > 0) {
-      await execAssert(ssh, `/file/remove [find name="wg-obfuscator"]`);
-    }
-  } finally {
-    await ssh.close();
+  // 6. Remove config directory (best effort)
+  const files = await transport.print('/file', { name: 'wg-obfuscator' });
+  if (files.length > 0) {
+    const id = String(files[0]!['.id'] ?? files[0]!.id ?? files[0]!.name);
+    await transport.remove('/file', id);
   }
 }
 

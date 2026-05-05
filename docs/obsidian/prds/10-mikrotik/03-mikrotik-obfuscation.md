@@ -6,15 +6,15 @@ phase: P2
 depends_on:
   - "[[prds/10-mikrotik/01-mikrotik-driver]]"
 touches:
-  - src/server/engines/mikrotik/obfuscator.ts (new)
+  - src/server/engines/mikrotik/obfuscator.ts
   - src/server/engines/mikrotik/index.ts
-  - src/server/database/repositories/wgObfuscatorConfig/schema.ts (new)
-  - src/server/database/repositories/wgObfuscatorConfig/service.ts (new)
-  - src/server/database/migrations/0006_wg_obfuscator.sql (new)
-  - src/server/api/admin/interface/[id]/obfuscation.put.ts (new)
-  - src/app/components/Interfaces/ObfuscationForm.vue (new)
-  - src/server/engines/mikrotik/obfuscator.test.ts (new)
+  - src/server/database/repositories/wgObfuscatorConfig/schema.ts
+  - src/server/api/admin/interface/[id]/obfuscation.put.ts
+  - src/app/components/Interfaces/ObfuscationForm.vue
+  - src/server/engines/mikrotik/obfuscator.test.ts
   - src/i18n/locales/en.json
+  - src/server/api/client/[clientId]/configuration.get.ts
+  - src/server/api/dashboard/clients/[clientId]/configuration.get.ts
 ---
 
 # PRD-10-03 — MikroTik obfuscation via wg-obfuscator
@@ -35,10 +35,10 @@ RouterOS doesn't run AmneziaWG. For MikroTik backends that need DPI evasion, the
 
 ### In
 
-- New table `wg_obfuscator_config` (one row per interface, present only when obfuscation is enabled): `interface_id PK`, `listen_port`, `wg_target_port`, `key`, `dummy_padding_min`, `dummy_padding_max`.
-- Server-side automation: SSH to the MikroTik, install the wg-obfuscator container/script per the upstream docs, configure it to listen on `listen_port` and forward to the local WG `wg_target_port`.
+- New table `wg_obfuscator_config` (one row per interface, present only when obfuscation is enabled): `interface_id PK`, `listen_port`, `wg_target_port`, `key`, `dummy_padding_min`, `dummy_padding_max`, `deploy_enabled`.
+- Server-side automation: API/SSH to the MikroTik, install the wg-obfuscator container/script per the upstream docs. **Now optional** via `deploy_enabled` flag.
 - Adjusted client config: `Endpoint` points at `<router>:<listen_port>` (the obfuscator), and the download includes a wg-obfuscator client config snippet plus a link/instructions.
-- UI: per-interface "Obfuscation" toggle for MikroTik interfaces, with the parameters editable in an advanced section.
+- UI: per-interface "Obfuscation" toggle for MikroTik interfaces, with the parameters editable in an advanced section, and a "Deploy sidecar" toggle.
 
 ### Out
 
@@ -50,13 +50,13 @@ RouterOS doesn't run AmneziaWG. For MikroTik backends that need DPI evasion, the
 
 ```ts
 export const wgObfuscatorConfig = sqliteTable('wg_obfuscator_config', {
-  // wg_interface PK is name TEXT — FK must be text, not int
   interfaceId: text('interface_id').primaryKey().references(() => wgInterface.name, { onDelete: 'cascade', onUpdate: 'cascade' }),
   listenPort: integer('listen_port').notNull(),
   wgTargetPort: integer('wg_target_port').notNull(),
-  key: text('key').notNull(),  // base64; treat as secret
+  key: text('key').notNull(),
   dummyPaddingMin: integer('dummy_padding_min').notNull().default(8),
   dummyPaddingMax: integer('dummy_padding_max').notNull().default(64),
+  deployEnabled: boolean('deploy_enabled').notNull().default(false),
 });
 ```
 
@@ -90,11 +90,13 @@ pnpm test src/server/engines/mikrotik/obfuscator.test.ts
 # manual: against a CHR + a Linux test client
 ```
 
-## Resolution log (2026-05-02)
+## Resolution log (2026-05-05)
 
-- **Shipped**: Idempotent SSH-based deployment of `wg-obfuscator` containers on RouterOS.
-- **Database**: Added `wg_obfuscator_config` table and repository service.
+- **Shipped**: Idempotent API-based deployment of `wg-obfuscator` containers on RouterOS.
+- **Transport Refactor**: Migrated from pure SSH to unified `MikrotikTransport` (API protocol support).
+- **Optional Deployment**: Added `deploy_enabled` flag to skip container installation on the router, allowing manual management while still providing client configs.
+- **Database**: Added `wg_obfuscator_config` table with `deploy_enabled` field.
 - **API**: Implemented `PUT /api/admin/interface/:id/obfuscation` to toggle and configure the sidecar.
-- **UI**: Added `ObfuscationForm.vue` dialog embedded in the router detail page for MikroTik interfaces.
-- **Client Config**: Added `generateClientObfuscatorConfig()` helper on `MikrotikEngine` to prepare client instructions (Integration into download endpoints deferred as a follow-up).
-- **Tests**: 5 new unit tests verifying deploy/remove/idempotency and config generation.
+- **UI**: Added `ObfuscationForm.vue` with "Deploy sidecar" toggle and corrected i18n paths.
+- **Client Config**: Integrated obfuscator parameters into the main client configuration download routes. Handled `Endpoint` port swap and appended client instructions.
+- **Tests**: Updated 6 unit tests verifying deploy/remove/idempotency and optional deployment logic. **Note: Feature is functionally complete but untested on live hardware.**

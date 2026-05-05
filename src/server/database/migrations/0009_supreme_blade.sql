@@ -1,0 +1,1 @@
+ALTER TABLE `wg_obfuscator_config` ADD `deploy_enabled` integer DEFAULT false NOT NULL;
