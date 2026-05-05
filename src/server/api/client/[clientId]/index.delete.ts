@@ -1,5 +1,6 @@
 import { ClientGetSchema } from '#db/repositories/client/types';
 import { getEngine } from '../../../engines/registry';
+import { syncOrEnqueue } from '../../../utils/syncOrEnqueue';
 
 export default definePermissionEventHandler(
   'clients',
@@ -18,8 +19,8 @@ export default definePermissionEventHandler(
     const iface = await Database.interfaces.get();
     const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();
-    await engine.syncInterface(iface, clients);
+    const { queued } = await syncOrEnqueue(engine, iface, clients);
 
-    return { success: true };
+    return { success: true, queued };
   }
 );

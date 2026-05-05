@@ -1,5 +1,6 @@
 import { setSpeedLimit } from '../../../services/speedLimitService';
 import { getEngine } from '../../../engines/registry';
+import { syncOrEnqueue } from '../../../utils/syncOrEnqueue';
 import {
   ClientGetSchema,
   ClientUpdateSchema,
@@ -34,7 +35,7 @@ export default definePermissionEventHandler(
     const iface = await Database.interfaces.get();
     const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();
-    await engine.syncInterface(iface, clients);
+    const { queued } = await syncOrEnqueue(engine, iface, clients, clientId);
 
     // Re-apply speed limit if IP changed
     if (ipChanged && oldClient) {
@@ -49,6 +50,6 @@ export default definePermissionEventHandler(
       }
     }
 
-    return { success: true };
+    return { success: true, queued };
   }
 );

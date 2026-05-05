@@ -3,6 +3,8 @@ import { runUsagePoller } from './usagePoller';
 import { runQuotaEvaluator } from './quotaEvaluator';
 import { runPeriodResetter } from './periodResetter';
 import { runUsageRollup } from './usageRollup';
+import { runReconciler } from './reconciler';
+import { runMutationQueue } from './mutationQueue';
 
 const SCHEDULER_DEBUG = debug('Scheduler');
 
@@ -44,6 +46,24 @@ export function startScheduler() {
       SCHEDULER_DEBUG('Usage rollup error:', err);
     }
   }, 60 * 60_000);
+
+  // Drain mutation retry queue every 15 seconds
+  setIntervalImmediately(async () => {
+    try {
+      await runMutationQueue();
+    } catch (err) {
+      SCHEDULER_DEBUG('Mutation queue error:', err);
+    }
+  }, 15_000);
+
+  // Reconcile engine state every 5 minutes
+  setIntervalImmediately(async () => {
+    try {
+      await runReconciler();
+    } catch (err) {
+      SCHEDULER_DEBUG('Reconciler error:', err);
+    }
+  }, 300_000);
 
   SCHEDULER_DEBUG('Scheduler started');
 }

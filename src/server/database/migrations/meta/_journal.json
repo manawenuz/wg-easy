@@ -71,6 +71,13 @@
       "when": 1777971717635,
       "tag": "0009_supreme_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1777972289477,
+      "tag": "0010_chunky_randall_flagg",
+      "breakpoints": true
     }
   ]
 }

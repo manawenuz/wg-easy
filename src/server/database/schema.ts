@@ -16,3 +16,4 @@ export * from './repositories/exitNode/schema';
 export * from './repositories/routePolicy/schema';
 export * from './repositories/apiToken/schema';
 export * from './repositories/wgObfuscatorConfig/schema';
+export * from './repositories/pendingMutation/schema';
