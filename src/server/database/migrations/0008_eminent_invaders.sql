@@ -1,4 +1,4 @@
-CREATE TABLE `wg_obfuscator_config` (
+CREATE TABLE IF NOT EXISTS `wg_obfuscator_config` (
 	`interface_id` text PRIMARY KEY NOT NULL,
 	`listen_port` integer NOT NULL,
 	`wg_target_port` integer NOT NULL,
