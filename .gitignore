@@ -2,3 +2,8 @@
 *.swp
 node_modules
 .kimi-code.json
+# Per-developer / runtime artifacts that shouldn't be versioned:
+data/wg-easy.db
+data/wg-easy.db-*
+docs/obsidian/.obsidian/workspace.json
+.claude/settings.local.json

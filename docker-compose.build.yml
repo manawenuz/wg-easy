@@ -1,0 +1,63 @@
+# Build-from-source compose. Use this from a checkout when you want to
+# build the image yourself (or have changed code locally) instead of
+# pulling ghcr.io/<owner>/wg-easy-fork:edge.
+#
+# Usage:
+#   docker compose -f docker-compose.build.yml up -d --build
+#
+# This file extends docker-compose.yml. Only services that need a build
+# context are overridden; everything else (ports, volumes, env, sidecar)
+# comes from the base file. To run *only* this compose without the base,
+# pass `-f docker-compose.build.yml` alone — the wg-easy service is
+# fully defined here, the wg-obfuscator sidecar isn't.
+
+volumes:
+  etc_wireguard:
+  obfuscator_config:
+
+services:
+  wg-easy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wg-easy-fork:local
+    container_name: wg-easy
+    network_mode: host
+    environment:
+      - INSECURE=true
+      - DEBUG=Server,WireGuard,Database,CMD,MikroTik,HostObfuscator
+      - HOST_OBFUSCATOR_CONFIG_DIR=/etc/wireguard/obfuscator
+      # - HOST_OBFUSCATOR_RELOAD_CMD=docker kill -s HUP wg-obfuscator
+      # MikroTik default-router seed (optional):
+      # - MIKROTIK_DEFAULT_HOST=
+      # - MIKROTIK_DEFAULT_NAME=mikrotik-default
+      # - MIKROTIK_DEFAULT_TRANSPORT=ssh
+      # - MIKROTIK_DEFAULT_SSH_USER=wg-easy
+      # - MIKROTIK_DEFAULT_SSH_KEY_FILE=/run/secrets/mikrotik_ssh_key
+      # - MIKROTIK_DEFAULT_API_USER=wg-easy
+      # - MIKROTIK_DEFAULT_API_PASSWORD=
+      # - MIKROTIK_DEFAULT_TLS_REQUIRED=true
+    volumes:
+      - etc_wireguard:/etc/wireguard
+      - obfuscator_config:/etc/wireguard/obfuscator
+      - /lib/modules:/lib/modules:ro
+      # Uncomment if HOST_OBFUSCATOR_RELOAD_CMD uses docker:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      # - ./secrets/mikrotik_ssh_key:/run/secrets/mikrotik_ssh_key:ro
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+  wg-obfuscator:
+    image: clustermeerkat/wg-obfuscator:latest
+    container_name: wg-obfuscator
+    network_mode: host
+    volumes:
+      - obfuscator_config:/etc/wg-obfuscator:ro
+    command: ["--config", "/etc/wg-obfuscator/wg0.conf"]
+    restart: unless-stopped
+    depends_on:
+      - wg-easy
