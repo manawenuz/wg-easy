@@ -1,0 +1,19 @@
+diff --git a/dist/Channel.js b/dist/Channel.js
+index 769f0276d92c6f717518279016ebe9acbbd22952..8b86f5d51591aa79bab2446e4af91ab6c56617e5 100644
+--- a/dist/Channel.js
++++ b/dist/Channel.js
+@@ -129,6 +129,14 @@ class Channel extends events_1.EventEmitter {
+                     this.emit('done', this.data);
+                 this.close();
+                 break;
++            case '!empty':
++                if (!this.trapped)
++                    this.emit('done', this.data);
++                this.close();
++                break;
++            case '!halt':
++                this.close();
++                break;
+             default:
+                 this.emit('unknown', reply);
+                 this.close();

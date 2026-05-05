@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  node-routeros@1.6.9:
+    hash: 4a6c7ec928a359e4df4cf7d64bd81b4f113a444a5db0a2588de5478a6d69a568
+    path: patches/node-routeros@1.6.9.patch
+
 importers:
 
   .:
@@ -10926,7 +10931,7 @@ snapshots:
 
   node-releases@2.0.38: {}
 
-  node-routeros@1.6.9:
+  node-routeros@1.6.9(patch_hash=4a6c7ec928a359e4df4cf7d64bd81b4f113a444a5db0a2588de5478a6d69a568):
     dependencies:
       debug: 4.4.3
       iconv-lite: 0.7.2
@@ -11793,7 +11798,7 @@ snapshots:
     dependencies:
       debug: 3.2.7
       lodash: 4.18.1
-      node-routeros: 1.6.9
+      node-routeros: 1.6.9(patch_hash=4a6c7ec928a359e4df4cf7d64bd81b4f113a444a5db0a2588de5478a6d69a568)
     transitivePeerDependencies:
       - supports-color
 

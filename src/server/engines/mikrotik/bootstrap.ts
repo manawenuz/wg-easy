@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { SshTransport } from '../../transports/ssh';
-import { RouterOsApiTransport } from '../../transports/routeros-api';
+import { RouterOsSshTransport } from '../../transports/routeros-ssh';
 import { decrypt, encrypt } from '../../utils/crypto';
 import type { RouterType } from '#db/repositories/router/types';
 
@@ -340,25 +340,17 @@ async function stepCaptureFingerprint(ssh: SshTransport): Promise<StepResult & {
 
 async function stepTestApi(
   router: RouterType,
-  apiPassword: string
+  ssh: SshTransport
 ): Promise<StepResult> {
   try {
-    const api = new RouterOsApiTransport({
-      host: router.host ?? 'localhost',
-      port: router.port ?? 8729,
-      user: 'wgeasy',
-      password: apiPassword,
-      tls: true,
-    });
-    await api.connect();
+    const api = new RouterOsSshTransport(ssh);
     const peers = await api.print('/interface/wireguard/peers');
-    await api.close();
     return { ok: true, detail: `${peers.length} peers` };
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : 'API connection test failed',
-      recovery: 'Check that api-ssl service is reachable on port 8729 and the firewall allows it.',
+      error: err instanceof Error ? err.message : 'SSH command test failed',
+      recovery: 'Verify the SSH user has sufficient permissions to print WireGuard peers.',
     };
   }
 }
@@ -416,8 +408,8 @@ export async function bootstrap(
     };
 
     await Database.routers.update(router.id, {
-      transport: 'routeros-api',
-      port: 8729,
+      transport: 'routeros-ssh',
+      port: router.port ?? 22,
       credentialsEncrypted: encrypt(JSON.stringify(credentials)),
     });
 
@@ -433,20 +425,10 @@ export async function bootstrap(
     return;
   }
 
-  // Step 11: test API connection
+  // Step 11: test SSH connection via RouterOsSshTransport
   emit({ step: 'test-api', status: 'pending' });
-  if (!apiPassword) {
-    emit({
-      step: 'test-api',
-      status: 'error',
-      detail: 'API password was not generated',
-      recovery: 'Retry bootstrap.',
-    });
-    await ssh.close();
-    return;
-  }
-
-  const testResult = await stepTestApi(router, apiPassword);
+  
+  const testResult = await stepTestApi(router, ssh);
   if (testResult.ok) {
     emit({ step: 'test-api', status: 'ok', detail: testResult.detail });
   } else {

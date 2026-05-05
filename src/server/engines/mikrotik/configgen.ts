@@ -65,11 +65,12 @@ export function diffPeers(
     } else {
       // Check if update needed by comparing key fields
       const row = existing.row;
+      const routerPsk = row['preshared-key'] ?? row.presharedKey;
       const needsUpdate =
         String(row['public-key'] ?? row.publicKey ?? '') !== peer.publicKey ||
         String(row['allowed-address'] ?? row.allowedAddress ?? '') !==
           String(params['allowed-address']) ||
-        String(row['preshared-key'] ?? row.presharedKey ?? '') !== peer.preSharedKey ||
+        (routerPsk !== undefined && String(routerPsk) !== peer.preSharedKey) ||
         String(row.disabled ?? 'no') !== String(params.disabled);
 
       if (needsUpdate) {

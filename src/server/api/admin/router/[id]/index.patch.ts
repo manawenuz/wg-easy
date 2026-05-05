@@ -9,6 +9,9 @@ const UpdateRouterSchema = z.object({
   transport: z.enum(['local-shell', 'ssh', 'routeros-api'] as const).optional(),
   host: z.string().min(1).optional().nullable(),
   port: z.number().int().min(1).max(65535).optional().nullable(),
+  apiPort: z.number().int().min(1).max(65535).optional().nullable(),
+  tlsRequired: z.boolean().optional(),
+  tlsFingerprintSha256: z.string().optional().nullable(),
   credentials: z
     .object({
       apiUser: z.string().min(1),
@@ -16,7 +19,6 @@ const UpdateRouterSchema = z.object({
       sshUser: z.string().optional().nullable(),
       sshKey: z.string().optional().nullable(),
       sshPassphrase: z.string().optional().nullable(),
-      tlsFingerprint: z.string().optional().nullable(),
     })
     .optional(),
   enabled: z.boolean().optional(),
@@ -47,6 +49,9 @@ export default defineEventHandler(async (event) => {
   if (body.transport !== undefined) updateData.transport = body.transport as TransportType;
   if (body.host !== undefined) updateData.host = body.host;
   if (body.port !== undefined) updateData.port = body.port;
+  if (body.apiPort !== undefined) updateData.apiPort = body.apiPort;
+  if (body.tlsRequired !== undefined) updateData.tlsRequired = body.tlsRequired;
+  if (body.tlsFingerprintSha256 !== undefined) updateData.tlsFingerprintSha256 = body.tlsFingerprintSha256;
   if (body.enabled !== undefined) updateData.enabled = body.enabled;
 
   if (body.credentials) {
@@ -55,7 +60,6 @@ export default defineEventHandler(async (event) => {
       apiPassword: body.credentials.apiPassword,
       sshUser: body.credentials.sshUser ?? undefined,
       sshKey: body.credentials.sshKey ?? undefined,
-      tlsFingerprint: body.credentials.tlsFingerprint ?? undefined,
     };
     updateData.credentialsEncrypted = encrypt(JSON.stringify(credentials));
     if (body.credentials.sshPassphrase) {

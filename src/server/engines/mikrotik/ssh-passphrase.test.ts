@@ -19,6 +19,7 @@ vi.mock('../../transports/ssh', () => ({
     }
     exec = mockExec;
     close = mockClose;
+    isConnected = vi.fn(() => true);
   },
 }));
 
@@ -59,6 +60,7 @@ describe('MikroTik sshPassphraseEncrypted', () => {
   it('engine #getApi passes passphrase to SshTransport when router has sshPassphraseEncrypted', async () => {
     const passphrase = 'my-secret-passphrase';
     const router = makeRouter({
+      transport: 'routeros-ssh',
       credentialsEncrypted: encrypt(
         JSON.stringify({
           apiUser: 'admin',
@@ -92,6 +94,7 @@ describe('MikroTik sshPassphraseEncrypted', () => {
 
   it('engine #getApi does not include passphrase when sshPassphraseEncrypted is null', async () => {
     const router = makeRouter({
+      transport: 'routeros-ssh',
       credentialsEncrypted: encrypt(
         JSON.stringify({
           apiUser: 'admin',

@@ -1,5 +1,6 @@
 import debug from 'debug';
 
+import { RouterOsSshTransport } from '../../transports/routeros-ssh';
 import { RouterOsApiTransport } from '../../transports/routeros-api';
 import { SshTransport } from '../../transports/ssh';
 import { decrypt } from '../../utils/crypto';
@@ -36,8 +37,8 @@ interface RouterCredentials {
 }
 
 interface ConnectionEntry {
-  api: RouterOsApiTransport;
-  ssh: SshTransport;
+  api: RouterOsSshTransport | RouterOsApiTransport;
+  ssh: SshTransport | null;
 }
 
 export class MikrotikEngine implements VpnEngine {
@@ -78,13 +79,29 @@ export class MikrotikEngine implements VpnEngine {
   async bringUp(iface: InterfaceType): Promise<void> {
     const router = await this.#requireRouter(iface);
     const api = await this.#getApi(router);
-    await api.exec('/interface', 'enable', { name: iface.name });
+    const rows = await api.print('/interface/wireguard', { name: iface.name });
+    if (rows.length === 0) {
+      throw new Error(`WireGuard interface ${iface.name} not found on router`);
+    }
+    const id = String(rows[0]!['.id'] ?? rows[0]!.id ?? '');
+    if (!id) {
+      throw new Error(`WireGuard interface ${iface.name} has no ID`);
+    }
+    await api.set('/interface/wireguard', id, { disabled: 'no' });
   }
 
   async bringDown(iface: InterfaceType): Promise<void> {
     const router = await this.#requireRouter(iface);
     const api = await this.#getApi(router);
-    await api.exec('/interface', 'disable', { name: iface.name });
+    const rows = await api.print('/interface/wireguard', { name: iface.name });
+    if (rows.length === 0) {
+      return;
+    }
+    const id = String(rows[0]!['.id'] ?? rows[0]!.id ?? '');
+    if (!id) {
+      return;
+    }
+    await api.set('/interface/wireguard', id, { disabled: 'yes' });
   }
 
   async syncInterface(iface: InterfaceType, peers: Client[]): Promise<void> {
@@ -168,7 +185,6 @@ export class MikrotikEngine implements VpnEngine {
     const api = await this.#getApi(router);
     const rows = await api.print('/interface/wireguard/peers', {
       interface: iface.name,
-      stats: '',
     });
     return usage.parseUsageSamples(rows as Array<Record<string, unknown>>);
   }
@@ -213,7 +229,7 @@ export class MikrotikEngine implements VpnEngine {
     return router;
   }
 
-  async #getApi(router: RouterType): Promise<RouterOsApiTransport> {
+  async #getApi(router: RouterType): Promise<RouterOsSshTransport | RouterOsApiTransport> {
     const entry = this.#pool.get(router.id);
     if (entry) {
       if (entry.api.isConnected()) {
@@ -225,27 +241,24 @@ export class MikrotikEngine implements VpnEngine {
     }
 
     const creds = this.#parseCredentials(router);
-    if (!creds.apiUser || !creds.apiPassword) {
-      throw new Error(`Router ${router.id} is missing API credentials`);
-    }
+    const useTls = router.tlsRequired ?? true;
 
-    const api = new RouterOsApiTransport({
-      host: router.host ?? 'localhost',
-      port: router.port ?? undefined,
-      user: creds.apiUser,
-      password: creds.apiPassword,
-    });
-
-    try {
-      await api.connect();
-    } catch (err) {
-      api.scheduleReconnect();
-      throw err;
+    if (router.transport === 'routeros-api') {
+      const api = new RouterOsApiTransport({
+        host: router.host ?? 'localhost',
+        port: router.apiPort ?? (useTls ? 8729 : 8728),
+        user: creds.apiUser ?? 'admin',
+        password: creds.apiPassword ?? '',
+        tls: useTls,
+        tlsFingerprint: router.tlsFingerprintSha256 ?? undefined,
+      });
+      this.#pool.set(router.id, { api, ssh: null as any });
+      return api;
     }
 
     const ssh = new SshTransport({
       host: router.host ?? 'localhost',
-      port: router.port ?? undefined,
+      port: router.port ?? 22,
       user: creds.sshUser ?? creds.apiUser ?? 'admin',
       auth: creds.sshKey
         ? {
@@ -253,8 +266,10 @@ export class MikrotikEngine implements VpnEngine {
             privateKey: Buffer.from(creds.sshKey, 'base64').toString('utf8'),
             ...(router.sshPassphraseEncrypted ? { passphrase: decrypt(router.sshPassphraseEncrypted) } : {}),
           }
-        : { type: 'password', password: creds.apiPassword },
+        : { type: 'password', password: creds.apiPassword ?? '' },
     });
+
+    const api = new RouterOsSshTransport(ssh);
 
     this.#pool.set(router.id, { api, ssh });
     return api;
@@ -273,7 +288,7 @@ export class MikrotikEngine implements VpnEngine {
   }
 
   async #findPeerId(
-    api: RouterOsApiTransport,
+    api: RouterOsSshTransport,
     iface: InterfaceType,
     publicKey: string
   ): Promise<string | null> {

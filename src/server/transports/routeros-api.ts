@@ -1,5 +1,5 @@
-import { RouterOSClient } from 'routeros-client';
-import type { RosApiMenu } from 'routeros-client';
+import { RouterOsApiProtocol, type RouterOsApiReply } from './routeros-api-protocol';
+import { checkServerIdentity } from './tls-pin';
 
 export interface RouterOsApiOptions {
   host: string;
@@ -7,13 +7,13 @@ export interface RouterOsApiOptions {
   user: string;
   password: string;
   tls?: boolean;
+  tlsFingerprint?: string;
 }
 
 export type RouterOsRow = Record<string, unknown>;
 
 export class RouterOsApiTransport {
-  private client: RouterOSClient | null = null;
-  private api: RosApiMenu | null = null;
+  private protocol: RouterOsApiProtocol | null = null;
   private connecting = false;
   private lastError: Error | null = null;
   private reconnectAttempts = 0;
@@ -22,7 +22,7 @@ export class RouterOsApiTransport {
   constructor(private readonly opts: RouterOsApiOptions) {}
 
   async connect(): Promise<void> {
-    if (this.api) {
+    if (this.protocol) {
       return;
     }
     if (this.connecting) {
@@ -34,17 +34,23 @@ export class RouterOsApiTransport {
     this.lastError = null;
 
     try {
-      const client = new RouterOSClient({
-        host: this.opts.host,
-        port: this.opts.port ?? (this.opts.tls ? 8729 : 8728),
-        user: this.opts.user,
-        password: this.opts.password,
-        ...(this.opts.tls ? { tls: { rejectUnauthorized: false } } : {}),
+      const useTls = this.opts.tls ?? true;
+      const port = this.opts.port ?? (useTls ? 8729 : 8728);
+
+      const protocol = new RouterOsApiProtocol(this.opts.host, port, useTls);
+
+      await protocol.connect({
+        checkServerIdentity: (hostname, cert) => {
+          if (useTls && this.opts.tlsFingerprint) {
+            return checkServerIdentity(hostname, cert, this.opts.tlsFingerprint);
+          }
+          return undefined;
+        },
+        rejectUnauthorized: !!(useTls && this.opts.tlsFingerprint),
       });
 
-      const api = await client.connect();
-      this.client = client;
-      this.api = api;
+      await protocol.login(this.opts.user, this.opts.password);
+      this.protocol = protocol;
       this.reconnectAttempts = 0;
     } catch (err) {
       this.lastError = err instanceof Error ? err : new Error(String(err));
@@ -59,20 +65,23 @@ export class RouterOsApiTransport {
     params: Record<string, string | number | boolean>
   ): Promise<RouterOsRow[]> {
     await this.connect();
-    const result = await this.api!.menu(path).add(params as Record<string, unknown>);
-    return Array.isArray(result) ? result : [result];
+    const words = [path + '/add', ...Object.entries(params).map(([k, v]) => `=${k}=${v}`)];
+    const replies = await this.protocol!.send(words);
+    this.#handleErrors(replies);
+    return this.#parseReplies(replies);
   }
 
   async print(path: string, query?: Record<string, string | number | boolean>): Promise<RouterOsRow[]> {
     await this.connect();
-    const menu = this.api!.menu(path);
+    const words = [path + '/print'];
     if (query) {
       for (const [key, value] of Object.entries(query)) {
-        menu.where(key, String(value));
+        words.push(`?${key}=${value}`);
       }
     }
-    const result = await menu.getAll();
-    return Array.isArray(result) ? result : [];
+    const replies = await this.protocol!.send(words);
+    this.#handleErrors(replies);
+    return this.#parseReplies(replies);
   }
 
   async set(
@@ -81,20 +90,31 @@ export class RouterOsApiTransport {
     params: Record<string, string | number | boolean>
   ): Promise<RouterOsRow[]> {
     await this.connect();
-    const result = await this.api!.menu(path).set(params as Record<string, unknown>, id);
-    return Array.isArray(result) ? result : [result];
+    const words = [path + '/set', `=.id=${id}`, ...Object.entries(params).map(([k, v]) => `=${k}=${v}`)];
+    const replies = await this.protocol!.send(words);
+    this.#handleErrors(replies);
+    return this.#parseReplies(replies);
   }
 
   async remove(path: string, id: string): Promise<RouterOsRow[]> {
     await this.connect();
-    const result = await this.api!.menu(path).remove(id);
-    return Array.isArray(result) ? result : [result];
+    const words = [path + '/remove', `=.id=${id}`];
+    const replies = await this.protocol!.send(words);
+    this.#handleErrors(replies);
+    return this.#parseReplies(replies);
   }
 
   async exec(path: string, command: string, data?: Record<string, unknown>): Promise<RouterOsRow[]> {
     await this.connect();
-    const result = await this.api!.menu(path).exec(command, data);
-    return Array.isArray(result) ? result : [result];
+    const words = [`${path}/${command}`];
+    if (data) {
+      for (const [k, v] of Object.entries(data)) {
+        words.push(`=${k}=${v}`);
+      }
+    }
+    const replies = await this.protocol!.send(words);
+    this.#handleErrors(replies);
+    return this.#parseReplies(replies);
   }
 
   async close(): Promise<void> {
@@ -102,19 +122,18 @@ export class RouterOsApiTransport {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    if (this.client) {
+    if (this.protocol) {
       try {
-        await this.client.close();
+        await this.protocol.close();
       } catch {
         // ignore
       }
-      this.client = null;
-      this.api = null;
+      this.protocol = null;
     }
   }
 
   isConnected(): boolean {
-    return this.client?.isConnected() ?? false;
+    return this.protocol !== null;
   }
 
   getLastError(): Error | null {
@@ -140,7 +159,7 @@ export class RouterOsApiTransport {
   #waitForConnect(): Promise<void> {
     return new Promise((resolve, reject) => {
       const check = () => {
-        if (this.api) {
+        if (this.protocol) {
           resolve();
         } else if (!this.connecting) {
           reject(this.lastError ?? new Error('Connection failed'));
@@ -150,5 +169,20 @@ export class RouterOsApiTransport {
       };
       check();
     });
+  }
+
+  #handleErrors(replies: RouterOsApiReply[]) {
+    const fatal = replies.find((r) => r.type === '!fatal');
+    if (fatal) {
+      throw new Error(fatal.attributes.message || 'Fatal RouterOS API error');
+    }
+    const trap = replies.find((r) => r.type === '!trap');
+    if (trap) {
+      throw new Error(trap.attributes.message || 'RouterOS API error');
+    }
+  }
+
+  #parseReplies(replies: RouterOsApiReply[]): RouterOsRow[] {
+    return replies.filter((r) => r.type === '!re').map((r) => r.attributes);
   }
 }

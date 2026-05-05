@@ -21,8 +21,35 @@
         <FormNumberField
           id="port"
           v-model="form.port"
-          :label="t('general.port')"
+          :label="t('admin.routers.sshPort')"
         />
+        <FormNumberField
+          id="apiPort"
+          v-model="form.apiPort"
+          :label="t('admin.routers.apiPort')"
+        />
+        <FormSwitchField
+          id="tlsRequired"
+          v-model="form.tlsRequired"
+          :label="t('admin.routers.tlsRequired')"
+        />
+        <p v-if="!form.tlsRequired" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          {{ t('admin.routers.tlsWarningPlaintext') }}
+        </p>
+        <div class="mt-4 flex flex-col gap-1">
+          <label class="text-sm font-medium">{{ t('admin.routers.fingerprint') }}</label>
+          <div class="flex gap-2">
+            <FormTextField
+              id="tlsFingerprintSha256"
+              v-model="form.tlsFingerprintSha256"
+              class="flex-1"
+              :placeholder="t('admin.routers.fingerprintPlaceholder')"
+            />
+            <BaseSecondaryButton class="px-3" @click="fetchFingerprint">
+              {{ t('admin.routers.fetchFingerprint') }}
+            </BaseSecondaryButton>
+          </div>
+        </div>
         <FormSwitchField
           id="enabled"
           v-model="form.enabled"
@@ -142,6 +169,9 @@ interface RouterItem {
   name: string;
   host: string | null;
   port: number | null;
+  apiPort: number | null;
+  tlsRequired: boolean | null;
+  tlsFingerprintSha256: string | null;
   engineType: string;
   transport: string;
   enabled: boolean;
@@ -173,7 +203,10 @@ const { data: interfaces, refresh: refreshInterfaces } = await useFetch<Interfac
 const form = ref({
   name: '',
   host: '',
-  port: 8728,
+  port: 22,
+  apiPort: 8729,
+  tlsRequired: true,
+  tlsFingerprintSha256: '',
   enabled: true,
   apiUser: '',
   apiPassword: '',
@@ -189,7 +222,10 @@ watch(
     form.value = {
       name: val.name ?? '',
       host: val.host ?? '',
-      port: val.port ?? 8728,
+      port: val.port ?? 22,
+      apiPort: val.apiPort ?? 8729,
+      tlsRequired: val.tlsRequired ?? true,
+      tlsFingerprintSha256: val.tlsFingerprintSha256 ?? '',
       enabled: val.enabled ?? true,
       apiUser: '',
       apiPassword: '',
@@ -201,11 +237,35 @@ watch(
   { immediate: true }
 );
 
+async function fetchFingerprint() {
+  if (!form.value.host) {
+    alert(t('admin.routers.hostRequired'));
+    return;
+  }
+  try {
+    const res = await $fetch('/api/admin/router/fingerprint', {
+      method: 'post',
+      body: {
+        host: form.value.host,
+        port: form.value.apiPort,
+      },
+    });
+    form.value.tlsFingerprintSha256 = res.spki;
+    alert(t('admin.routers.testSuccess'));
+  } catch (e: any) {
+    alert(e?.data?.statusMessage || e?.message || t('admin.routers.testFailed'));
+  }
+}
+
 async function submit() {
   const body: Record<string, unknown> = {};
   if (form.value.name !== routerData.value?.name) body.name = form.value.name;
   if (form.value.host !== (routerData.value?.host ?? '')) body.host = form.value.host || null;
-  if (form.value.port !== (routerData.value?.port ?? 8728)) body.port = form.value.port;
+  if (form.value.port !== (routerData.value?.port ?? 22)) body.port = form.value.port;
+  if (form.value.apiPort !== (routerData.value?.apiPort ?? 8729)) body.apiPort = form.value.apiPort;
+  if (form.value.tlsRequired !== routerData.value?.tlsRequired) body.tlsRequired = form.value.tlsRequired;
+  if (form.value.tlsFingerprintSha256 !== (routerData.value?.tlsFingerprintSha256 ?? ''))
+    body.tlsFingerprintSha256 = form.value.tlsFingerprintSha256 || null;
   if (form.value.enabled !== routerData.value?.enabled) body.enabled = form.value.enabled;
 
   if (form.value.apiUser || form.value.apiPassword || form.value.sshUser || form.value.sshKey || form.value.sshPassphrase) {
@@ -231,7 +291,10 @@ async function revert() {
     form.value = {
       name: routerData.value.name ?? '',
       host: routerData.value.host ?? '',
-      port: routerData.value.port ?? 8728,
+      port: routerData.value.port ?? 22,
+      apiPort: routerData.value.apiPort ?? 8729,
+      tlsRequired: routerData.value.tlsRequired ?? true,
+      tlsFingerprintSha256: routerData.value.tlsFingerprintSha256 ?? '',
       enabled: routerData.value.enabled ?? true,
       apiUser: '',
       apiPassword: '',

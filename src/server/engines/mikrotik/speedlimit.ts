@@ -1,5 +1,8 @@
+import type { RouterOsSshTransport } from '../../transports/routeros-ssh';
 import type { RouterOsApiTransport } from '../../transports/routeros-api';
 import type { Client } from '../types';
+
+type RouterOsTransport = RouterOsSshTransport | RouterOsApiTransport;
 
 function queueUpName(clientId: ID): string {
   return `wg-${clientId}-up`;
@@ -18,7 +21,7 @@ function packetMarkDown(clientId: ID): string {
 }
 
 export async function applySpeedLimit(
-  transport: RouterOsApiTransport,
+  transport: RouterOsTransport,
   peer: Client,
   upKbps: number,
   downKbps: number
@@ -72,7 +75,7 @@ export async function applySpeedLimit(
   });
 }
 
-export async function clearSpeedLimit(transport: RouterOsApiTransport, peer: Client): Promise<void> {
+export async function clearSpeedLimit(transport: RouterOsTransport, peer: Client): Promise<void> {
   const clientId = peer.id;
   const upName = queueUpName(clientId);
   const downName = queueDownName(clientId);

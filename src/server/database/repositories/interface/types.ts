@@ -17,7 +17,6 @@ export type InterfaceUpdateType = Omit<
   | 'updatedAt'
   | 'privateKey'
   | 'publicKey'
-  | 'routerId'
 >;
 
 const device = z
@@ -57,6 +56,7 @@ export const InterfaceUpdateSchema = schemaForType<InterfaceUpdateType>()(
     device: device,
     enabled: EnabledSchema,
     firewallEnabled: EnabledSchema,
+    routerId: z.number().int().positive().optional(),
   })
 );
 

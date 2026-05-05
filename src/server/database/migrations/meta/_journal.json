@@ -57,6 +57,13 @@
       "when": 1777713400000,
       "tag": "0007_router_passphrase",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777970029612,
+      "tag": "0008_eminent_invaders",
+      "breakpoints": true
     }
   ]
 }

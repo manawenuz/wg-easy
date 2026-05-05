@@ -1,8 +1,17 @@
 ---
 title: Orchestration handoff — resume here
 type: handoff
-last_updated: 2026-05-04
+last_updated: 2026-05-05
 ---
+
+> **2026-05-05 update — MikroTik live verification + new PRD batch.** Engine→router path was end-to-end verified against `tgCHR` (ROS 7.22.1) over Tailscale (`tgmanwehs` host): integration test passes, real `manseTest` client synced from live DB to router, full UI/API create+delete cycle works. Live audit surfaced gaps that became four new bugfix PRDs and one P1 security PRD:
+> - `60-bugfixes/06-engine-reconcile-loop` — periodic full-sync + mutation retry queue (data integrity, **high**)
+> - `60-bugfixes/07-expired-client-autodisable` — scheduler tick to disable clients past `expires_at` (security)
+> - `60-bugfixes/08-engine-health-surface` — surface router connectivity in UI + audit log (observability)
+> - `60-bugfixes/09-mikrotik-healthcheck` — engine-aware Docker `HEALTHCHECK` (cosmetic — current image always reports `unhealthy` on MikroTik engine)
+> - `10-mikrotik/04-routeros-api-tls-pinning` — replace broken `routeros-client@1.1.2` (fails on ROS 7.22) with in-tree API protocol over TLS + cert pinning (**high security + reliability**)
+>
+> Implementation order: **10-04 first** (it unblocks reverting from SSH transport back to API for normal ops), then **60-06 → 60-07 → 60-08 → 60-09** (independent; 60-08 mildly depends on the audit events emitted by 60-06). Hand each to Kimi via `scripts/assemble-kimi-prompt.sh 10 4` / `60 6` / etc.
 
 > **2026-05-04 update**: First test deployment to `178.105.64.108` exposed five production bugs (one security-critical). Bugfix PRDs are in `prds/60-bugfixes/`:
 > - `01-dashboard-i18n-key` — missing `pages.dashboard` translation

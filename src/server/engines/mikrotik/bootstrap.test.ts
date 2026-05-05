@@ -135,8 +135,8 @@ describe('bootstrap', () => {
     expect(routerUpdateMock).toHaveBeenCalledWith(
       1,
       expect.objectContaining({
-        transport: 'routeros-api',
-        port: 8729,
+        transport: 'routeros-ssh',
+        port: 22,
       })
     );
   });

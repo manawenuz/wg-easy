@@ -79,6 +79,10 @@ export class SshTransport {
     }
   }
 
+  isConnected(): boolean {
+    return this.conn !== null;
+  }
+
   async #ensureConnected(): Promise<void> {
     if (this.conn) {
       return;
@@ -103,13 +107,35 @@ export class SshTransport {
     }
 
     return new Promise((resolve, reject) => {
-      conn.on('ready', () => {
+      const onReady = () => {
+        cleanup();
         this.conn = conn;
         resolve();
-      });
-      conn.on('error', (err) => {
+      };
+      const onError = (err: Error) => {
+        cleanup();
         reject(err);
-      });
+      };
+      const onEnd = () => {
+        cleanup();
+        this.conn = null;
+      };
+      const onClose = () => {
+        cleanup();
+        this.conn = null;
+      };
+
+      const cleanup = () => {
+        conn.removeListener('ready', onReady);
+        conn.removeListener('error', onError);
+        conn.removeListener('end', onEnd);
+        conn.removeListener('close', onClose);
+      };
+
+      conn.on('ready', onReady);
+      conn.on('error', onError);
+      conn.on('end', onEnd);
+      conn.on('close', onClose);
       conn.connect(connectConfig);
     });
   }

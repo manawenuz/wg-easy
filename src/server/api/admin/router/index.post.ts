@@ -9,13 +9,15 @@ const CreateRouterSchema = z.object({
   transport: z.enum(['local-shell', 'ssh', 'routeros-api'] as const),
   host: z.string().min(1).optional().nullable(),
   port: z.number().int().min(1).max(65535).optional().nullable(),
+  apiPort: z.number().int().min(1).max(65535).optional().nullable(),
+  tlsRequired: z.boolean().optional(),
+  tlsFingerprintSha256: z.string().optional().nullable(),
   credentials: z.object({
     apiUser: z.string().min(1),
     apiPassword: z.string().min(1),
     sshUser: z.string().optional().nullable(),
     sshKey: z.string().optional().nullable(),
     sshPassphrase: z.string().optional().nullable(),
-    tlsFingerprint: z.string().optional().nullable(),
   }),
   enabled: z.boolean().optional(),
 });
@@ -33,7 +35,6 @@ export default defineEventHandler(async (event) => {
     apiPassword: body.credentials.apiPassword,
     sshUser: body.credentials.sshUser ?? undefined,
     sshKey: body.credentials.sshKey ?? undefined,
-    tlsFingerprint: body.credentials.tlsFingerprint ?? undefined,
   };
 
   const sshPassphraseEncrypted = body.credentials.sshPassphrase
@@ -46,6 +47,9 @@ export default defineEventHandler(async (event) => {
     transport: body.transport as TransportType,
     host: body.host ?? null,
     port: body.port ?? null,
+    apiPort: body.apiPort ?? 8729,
+    tlsRequired: body.tlsRequired ?? true,
+    tlsFingerprintSha256: body.tlsFingerprintSha256 ?? null,
     credentialsEncrypted: encrypt(JSON.stringify(credentials)),
     sshPassphraseEncrypted,
     enabled: body.enabled ?? true,

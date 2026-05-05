@@ -49,6 +49,33 @@
               :label="t('admin.routers.apiPassword')"
               autocomplete="new-password"
             />
+            <FormNumberField
+              id="apiPort"
+              v-model="newRouter.apiPort"
+              :label="t('admin.routers.apiPort')"
+            />
+            <FormSwitchField
+              id="tlsRequired"
+              v-model="newRouter.tlsRequired"
+              :label="t('admin.routers.tlsRequired')"
+            />
+            <p v-if="!newRouter.tlsRequired" class="text-xs text-amber-600 dark:text-amber-400">
+              {{ t('admin.routers.tlsWarningPlaintext') }}
+            </p>
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium">{{ t('admin.routers.fingerprint') }}</label>
+              <div class="flex gap-2">
+                <FormTextField
+                  id="tlsFingerprintSha256"
+                  v-model="newRouter.tlsFingerprintSha256"
+                  class="flex-1"
+                  :placeholder="t('admin.routers.fingerprintPlaceholder')"
+                />
+                <BaseSecondaryButton class="px-3" @click="fetchFingerprint">
+                  {{ t('admin.routers.fetchFingerprint') }}
+                </BaseSecondaryButton>
+              </div>
+            </div>
             <template v-if="newRouter.transport === 'ssh'">
               <FormTextField
                 id="sshUser"
@@ -190,7 +217,10 @@ watch(error, (err) => {
 const newRouter = ref({
   name: '',
   host: '',
-  port: 8728,
+  port: 22,
+  apiPort: 8729,
+  tlsRequired: true,
+  tlsFingerprintSha256: '',
   engineType: 'mikrotik',
   transport: 'routeros-api',
   apiUser: '',
@@ -199,6 +229,29 @@ const newRouter = ref({
   sshKey: '',
   sshPassphrase: '',
 });
+
+async function fetchFingerprint() {
+  if (!newRouter.value.host) {
+    toast.showToast({ type: 'error', message: t('admin.routers.hostRequired') });
+    return;
+  }
+  try {
+    const res = await $fetch('/api/admin/router/fingerprint', {
+      method: 'post',
+      body: {
+        host: newRouter.value.host,
+        port: newRouter.value.apiPort,
+      },
+    });
+    newRouter.value.tlsFingerprintSha256 = res.spki;
+    toast.showToast({ type: 'success', message: t('admin.routers.testSuccess') });
+  } catch (e: any) {
+    toast.showToast({
+      type: 'error',
+      message: e?.data?.statusMessage || e?.message || t('admin.routers.testFailed'),
+    });
+  }
+}
 
 const engineOptions = computed(() => [
   { label: 'MikroTik', value: 'mikrotik' },
@@ -217,6 +270,9 @@ async function createRouter() {
         name: newRouter.value.name,
         host: newRouter.value.host || null,
         port: newRouter.value.port,
+        apiPort: newRouter.value.apiPort,
+        tlsRequired: newRouter.value.tlsRequired,
+        tlsFingerprintSha256: newRouter.value.tlsFingerprintSha256 || null,
         engineType: newRouter.value.engineType,
         transport: newRouter.value.transport,
         credentials: {
@@ -235,7 +291,10 @@ async function createRouter() {
     newRouter.value = {
       name: '',
       host: '',
-      port: 8728,
+      port: 22,
+      apiPort: 8729,
+      tlsRequired: true,
+      tlsFingerprintSha256: '',
       engineType: 'mikrotik',
       transport: 'routeros-api',
       apiUser: '',

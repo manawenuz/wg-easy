@@ -23,7 +23,10 @@ This document summarizes the technical state of the codebase after the first thr
 - **Speed Limits:** Badge labels are hardcoded.
 
 ### MikroTik
-- **API Connectivity:** TLS is supported, but **fingerprint pinning (TOFU)** is not yet implemented. It currently connects to any TLS-enabled RouterOS API without verification.
+- **Transport:** Switched from `node-routeros` API to `RouterOsSshTransport` due to compatibility issues with ROS 7.22+. Verified on live hardware (ROS 7.22.1).
+- **SSH Connectivity:** Supports both password and key-based authentication. Parsed output handles terse formats, unit conversions (KiB/MiB), and duration parsing.
+- **show-ids:** The transport now uses `show-ids` in `print` commands to reliably get internal IDs for `set` and `remove` operations, which is more robust than using indexes in short-lived SSH sessions.
+- **Bootstrap:** Updated to persist `routeros-ssh` transport by default.
 - **Endpoints:** Missing a singular `GET /api/admin/router/[id]` endpoint; the UI currently filters from the full list.
 - **Obfuscation:** The `generateClientObfuscatorConfig()` helper is implemented on the engine but **not yet wired** into the `/api/client/:id/configuration` or dashboard download routes.
 
