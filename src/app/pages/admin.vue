@@ -64,10 +64,9 @@ const menuItems = computed(() => {
     { id: 'hooks', name: t('pages.admin.hooks') },
   ];
 
-  const principal = authStore.principal;
-  const isSuperAdmin = principal?.user.role === roles.SUPERADMIN;
-  const isAdmin =
-    principal?.user.role === roles.ADMIN || isSuperAdmin;
+  const role = authStore.userData?.role;
+  const isSuperAdmin = role === roles.SUPERADMIN;
+  const isAdmin = role === roles.ADMIN || isSuperAdmin;
 
   if (isAdmin) {
     items.push({ id: 'routers', name: t('pages.admin.routers') });

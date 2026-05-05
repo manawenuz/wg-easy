@@ -39,7 +39,7 @@ RUN npm install --no-save --omit=dev libsql
 FROM docker.io/library/node:krypton-alpine
 WORKDIR /app
 
-HEALTHCHECK --interval=1m --timeout=5s --retries=3 CMD /usr/bin/timeout 5s /bin/sh -c "/usr/bin/wg show | /bin/grep -q interface || exit 1"
+HEALTHCHECK --interval=1m --timeout=5s --retries=3 CMD /usr/local/bin/cli healthcheck
 
 # Copy build
 COPY --from=build /app/.output /app
@@ -66,6 +66,7 @@ RUN chmod +x /usr/bin/boringtun-cli
 RUN apk add --no-cache \
     dpkg \
     dumb-init \
+    dnsmasq \
     iptables \
     ip6tables \
     nftables \
@@ -77,9 +78,16 @@ RUN apk add --no-cache \
 RUN mkdir -p /etc/amnezia
 RUN ln -s /etc/wireguard /etc/amnezia/amneziawg
 
-# Use iptables-legacy
-RUN update-alternatives --install /usr/sbin/iptables iptables /usr/sbin/iptables-legacy 10 --slave /usr/sbin/iptables-restore iptables-restore /usr/sbin/iptables-legacy-restore --slave /usr/sbin/iptables-save iptables-save /usr/sbin/iptables-legacy-save
-RUN update-alternatives --install /usr/sbin/ip6tables ip6tables /usr/sbin/ip6tables-legacy 10 --slave /usr/sbin/ip6tables-restore ip6tables-restore /usr/sbin/ip6tables-legacy-restore --slave /usr/sbin/ip6tables-save ip6tables-save /usr/sbin/ip6tables-legacy-save
+# Default to iptables-nft so wg-easy's hook-installed rules are visible to
+# the same kernel filter chain Docker already populates with `policy drop`
+# on hosts that use iptables-nft. Using iptables-legacy here means our
+# FORWARD/MASQUERADE rules go into a parallel ruleset the host's nftables
+# never consults — packets get dropped by the nft `policy drop` before
+# reaching POSTROUTING and clients see "tunnel up, internet broken."
+# Operators stuck on iptables-legacy hosts can override at runtime with
+# `update-alternatives --set iptables /usr/sbin/iptables-legacy`.
+RUN update-alternatives --install /usr/sbin/iptables iptables /usr/sbin/iptables-nft 10 --slave /usr/sbin/iptables-restore iptables-restore /usr/sbin/iptables-nft-restore --slave /usr/sbin/iptables-save iptables-save /usr/sbin/iptables-nft-save
+RUN update-alternatives --install /usr/sbin/ip6tables ip6tables /usr/sbin/ip6tables-nft 10 --slave /usr/sbin/ip6tables-restore ip6tables-restore /usr/sbin/ip6tables-nft-restore --slave /usr/sbin/ip6tables-save ip6tables-save /usr/sbin/ip6tables-nft-save
 
 # Set Environment
 ENV DEBUG=Server,WireGuard,Database,CMD

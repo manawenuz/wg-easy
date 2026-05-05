@@ -11,4 +11,6 @@ export const wgObfuscatorConfig = sqliteTable('wg_obfuscator_config', {
   dummyPaddingMin: integer('dummy_padding_min').notNull().default(8),
   dummyPaddingMax: integer('dummy_padding_max').notNull().default(64),
   deployEnabled: integer('deploy_enabled', { mode: 'boolean' }).notNull().default(false),
+  deploymentMode: text('deployment_mode').notNull().default('router'),
+  hostEndpoint: text('host_endpoint'),
 });

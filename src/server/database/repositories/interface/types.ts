@@ -56,7 +56,8 @@ export const InterfaceUpdateSchema = schemaForType<InterfaceUpdateType>()(
     device: device,
     enabled: EnabledSchema,
     firewallEnabled: EnabledSchema,
-    routerId: z.number().int().positive().optional(),
+    // 0 is the 'self' router (local engine); positive() rejects it.
+    routerId: z.number().int().nonnegative().optional(),
   })
 );
 

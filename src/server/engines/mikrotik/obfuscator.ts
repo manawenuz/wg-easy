@@ -80,11 +80,12 @@ export async function deployObfuscator(
       });
     }
 
-    // 4. Ensure container exists
-    const containers = await transport.print('/container', { name: CONTAINER_NAME });
+    // 4. Ensure container exists. RouterOS auto-names containers from the
+    // remote-image tag and rejects an explicit `name=` property. Identify
+    // by interface (one container per veth) which is unique.
+    const containers = await transport.print('/container', { interface: VETH_NAME });
     if (containers.length === 0) {
       await transport.write('/container', {
-        name: CONTAINER_NAME,
         interface: VETH_NAME,
         logging: 'yes',
         mounts: MOUNT_NAME,
@@ -108,14 +109,11 @@ export async function deployObfuscator(
     }
 
     // 6. Start container if not running
-    const running = await transport.print('/container', {
-      name: CONTAINER_NAME,
-      status: 'running',
-    });
-    if (running.length === 0) {
-      const allContainers = await transport.print('/container', { name: CONTAINER_NAME });
-      if (allContainers.length > 0) {
-        const id = String(allContainers[0]!['.id'] ?? allContainers[0]!.id);
+    const allContainers = await transport.print('/container', { interface: VETH_NAME });
+    if (allContainers.length > 0) {
+      const id = String(allContainers[0]!['.id'] ?? allContainers[0]!.id);
+      const status = String(allContainers[0]!.status ?? '');
+      if (status !== 'running') {
         await transport.exec('/container', 'start', { '.id': id });
       }
     }
@@ -149,8 +147,9 @@ export async function deployObfuscator(
 }
 
 export async function removeObfuscator(transport: MikrotikTransport): Promise<void> {
-  // 1. Stop and remove container
-  const containers = await transport.print('/container', { name: CONTAINER_NAME });
+  // 1. Stop and remove container (identified by veth, since /container has
+  // no settable `name` property — RouterOS auto-names from image tag).
+  const containers = await transport.print('/container', { interface: VETH_NAME });
   if (containers.length > 0) {
     const id = String(containers[0]!['.id'] ?? containers[0]!.id);
     if (containers[0]!.status === 'running') {

@@ -22,6 +22,9 @@ export class WgObfuscatorConfigService {
     key: string;
     dummyPaddingMin?: number;
     dummyPaddingMax?: number;
+    deployEnabled?: boolean;
+    deploymentMode?: 'router' | 'host';
+    hostEndpoint?: string | null;
   }) {
     const result = await this.#db
       .insert(wgObfuscatorConfig)
@@ -32,6 +35,9 @@ export class WgObfuscatorConfigService {
         key: data.key,
         dummyPaddingMin: data.dummyPaddingMin ?? 8,
         dummyPaddingMax: data.dummyPaddingMax ?? 64,
+        deployEnabled: data.deployEnabled ?? false,
+        deploymentMode: data.deploymentMode ?? 'router',
+        hostEndpoint: data.hostEndpoint ?? null,
       })
       .returning();
     return result[0]!;
@@ -45,6 +51,9 @@ export class WgObfuscatorConfigService {
       key: string;
       dummyPaddingMin: number;
       dummyPaddingMax: number;
+      deployEnabled: boolean;
+      deploymentMode: 'router' | 'host';
+      hostEndpoint: string | null;
     }>
   ) {
     const result = await this.#db

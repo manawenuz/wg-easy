@@ -170,6 +170,14 @@ export class ClientService {
     }));
   }
 
+  async findExpired(now: Date) {
+    const result = await this.#db.query.client.findMany({
+      where: (c, { and, eq, lte, isNotNull }) =>
+        and(eq(c.enabled, true), isNotNull(c.expiresAt), lte(c.expiresAt, now.toISOString())),
+    });
+    return result;
+  }
+
   get(id: ID) {
     return this.#statements.findById.execute({ id });
   }
@@ -178,7 +186,7 @@ export class ClientService {
     return this.#statements.findByPublicKey.execute({ publicKey });
   }
 
-  async create({ name, expiresAt, userId }: ClientCreateType & { userId?: number }) {
+  async create({ name, expiresAt, userId }: ClientCreateType & { userId: number }) {
     const privateKey = await wg.generatePrivateKey();
     const publicKey = await wg.getPublicKey(privateKey);
     const preSharedKey = await wg.generatePreSharedKey();
@@ -210,12 +218,15 @@ export class ClientService {
       const ipv6Cidr = parseCidr(clientInterface.ipv6Cidr);
       const ipv6Address = nextIP(6, ipv6Cidr, clients);
 
+      if (!userId) {
+        throw new Error('userId is required to create a client');
+      }
+
       return await tx
         .insert(client)
         .values({
           name,
-          // Use provided userId, fall back to 1 for backward compat
-          userId: userId ?? 1,
+          userId,
           interfaceId: 'wg0',
           expiresAt,
           privateKey,

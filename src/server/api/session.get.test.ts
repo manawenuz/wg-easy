@@ -34,22 +34,11 @@ describe('session.get', () => {
   });
 
   it('returns CLIENT role for user principal even if underlying role is ADMIN', async () => {
-    vi.stubGlobal('Database', {
-      clients: {
-        get: vi.fn(async (clientId: number) => {
-          if (clientId === 1) {
-            return { id: 1, name: 'dns-test' };
-          }
-          return undefined;
-        }),
-      },
-    });
-
     const { resolvePrincipal } = await import('../utils/principal');
     vi.stubGlobal('resolvePrincipal', vi.fn(async () => ({
       kind: 'user',
       user: mockUser(1, roles.ADMIN),
-      clientId: 1,
+      dashboardUserId: 1,
     })));
 
     const sessionHandler = (await import('./session.get')).default as Handler;
@@ -58,7 +47,7 @@ describe('session.get', () => {
     expect(result).toMatchObject({
       id: 1,
       role: roles.CLIENT,
-      name: 'dns-test',
+      name: 'Test',
     });
   });
 

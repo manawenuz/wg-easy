@@ -106,36 +106,35 @@ export class SshTransport {
       }
     }
 
+    // Lifetime listeners: keep `end` and `close` attached past the initial
+    // handshake so dropped connections null out `this.conn` and the next
+    // call re-dials. The earlier version cleaned up *all* listeners on ready,
+    // which left a dangling `this.conn` after the socket closed and produced
+    // "Not connected" errors that never recovered.
+    const dropConn = () => {
+      if (this.conn === conn) {
+        this.conn = null;
+      }
+    };
+    conn.on('end', dropConn);
+    conn.on('close', dropConn);
+    conn.on('error', dropConn);
+
     return new Promise((resolve, reject) => {
       const onReady = () => {
-        cleanup();
+        conn.removeListener('ready', onReady);
+        conn.removeListener('error', onHandshakeError);
         this.conn = conn;
         resolve();
       };
-      const onError = (err: Error) => {
-        cleanup();
-        reject(err);
-      };
-      const onEnd = () => {
-        cleanup();
-        this.conn = null;
-      };
-      const onClose = () => {
-        cleanup();
-        this.conn = null;
-      };
-
-      const cleanup = () => {
+      const onHandshakeError = (err: Error) => {
         conn.removeListener('ready', onReady);
-        conn.removeListener('error', onError);
-        conn.removeListener('end', onEnd);
-        conn.removeListener('close', onClose);
+        conn.removeListener('error', onHandshakeError);
+        reject(err);
       };
 
       conn.on('ready', onReady);
-      conn.on('error', onError);
-      conn.on('end', onEnd);
-      conn.on('close', onClose);
+      conn.on('error', onHandshakeError);
       conn.connect(connectConfig);
     });
   }

@@ -44,4 +44,25 @@ export class RouterService {
       .set({ lastSeen })
       .where(eq(router.id, id));
   }
+
+  async recordHealth(id: ID, success: boolean, error?: string): Promise<{ crossedThreshold: boolean; recovered: boolean }> {
+    const current = await this.get(id);
+    const prev = current?.consecutiveFailures ?? 0;
+
+    if (success) {
+      await this.#db.update(router).set({
+        lastSeenOkAt: new Date(),
+        lastSeenError: null,
+        consecutiveFailures: 0,
+      }).where(eq(router.id, id));
+      return { crossedThreshold: false, recovered: prev >= 3 };
+    } else {
+      const next = prev + 1;
+      await this.#db.update(router).set({
+        lastSeenError: error ?? 'unknown error',
+        consecutiveFailures: next,
+      }).where(eq(router.id, id));
+      return { crossedThreshold: next === 3, recovered: false };
+    }
+  }
 }

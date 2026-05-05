@@ -4,6 +4,8 @@ import { createClient } from '@libsql/client';
 import debug from 'debug';
 import { eq } from 'drizzle-orm';
 import { roles } from '#shared/utils/permissions';
+import { encrypt } from '../utils/crypto';
+import { MIKROTIK_DEFAULT_ENV } from '../utils/config';
 
 import * as schema from './schema';
 import { ClientService } from './repositories/client/service';
@@ -40,6 +42,8 @@ export async function connect() {
   if (WG_INITIAL_ENV.ENABLED) {
     await initialSetup(dbService);
   }
+
+  await seedDefaultMikrotikRouter(dbService);
 
   if (WG_ENV.DISABLE_IPV6) {
     DB_DEBUG('Warning: Disabling IPv6...');
@@ -155,6 +159,69 @@ async function initialSetup(db: DBServiceType) {
 
     await db.general.setSetupStep(0);
   }
+}
+
+async function seedDefaultMikrotikRouter(db: DBServiceType) {
+  if (!MIKROTIK_DEFAULT_ENV.ENABLED || !MIKROTIK_DEFAULT_ENV.HOST) return;
+
+  const existing = await db.routers.getAll();
+  if (existing.some((r) => r.name === MIKROTIK_DEFAULT_ENV.NAME)) {
+    DB_DEBUG(`Default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' already present, skipping seed.`);
+    return;
+  }
+
+  const transport = MIKROTIK_DEFAULT_ENV.TRANSPORT;
+  const isSsh = transport === 'ssh';
+  const port = MIKROTIK_DEFAULT_ENV.PORT ?? (isSsh ? 22 : null);
+  const apiPort =
+    MIKROTIK_DEFAULT_ENV.API_PORT ?? (MIKROTIK_DEFAULT_ENV.TLS_REQUIRED ? 8729 : 8728);
+
+  const sshKeyB64 = MIKROTIK_DEFAULT_ENV.SSH_KEY
+    ? Buffer.from(MIKROTIK_DEFAULT_ENV.SSH_KEY, 'utf8').toString('base64')
+    : undefined;
+
+  const credentials = {
+    apiUser: MIKROTIK_DEFAULT_ENV.API_USER,
+    apiPassword: MIKROTIK_DEFAULT_ENV.API_PASSWORD,
+    sshUser: isSsh ? MIKROTIK_DEFAULT_ENV.SSH_USER : undefined,
+    sshKey: isSsh ? sshKeyB64 : undefined,
+  };
+
+  // Validate the credential set matches the chosen transport so we fail fast
+  // with a clear log line instead of letting the engine error later.
+  if (!isSsh && (!credentials.apiUser || !credentials.apiPassword)) {
+    console.warn(
+      '[seed] MIKROTIK_DEFAULT_TRANSPORT=routeros-api requires MIKROTIK_DEFAULT_API_USER and MIKROTIK_DEFAULT_API_PASSWORD; skipping seed.'
+    );
+    return;
+  }
+  if (isSsh && !credentials.sshKey && !credentials.apiPassword) {
+    console.warn(
+      '[seed] MIKROTIK_DEFAULT_TRANSPORT=ssh requires either MIKROTIK_DEFAULT_SSH_KEY(_FILE) or MIKROTIK_DEFAULT_API_PASSWORD; skipping seed.'
+    );
+    return;
+  }
+
+  DB_DEBUG(`Seeding default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' at ${MIKROTIK_DEFAULT_ENV.HOST} via ${transport}`);
+
+  const sshPassphraseEncrypted = MIKROTIK_DEFAULT_ENV.SSH_PASSPHRASE
+    ? encrypt(MIKROTIK_DEFAULT_ENV.SSH_PASSPHRASE)
+    : null;
+
+  await db.routers.create({
+    name: MIKROTIK_DEFAULT_ENV.NAME,
+    engineType: 'mikrotik',
+    transport,
+    host: MIKROTIK_DEFAULT_ENV.HOST,
+    port,
+    apiPort,
+    tlsRequired: MIKROTIK_DEFAULT_ENV.TLS_REQUIRED,
+    tlsFingerprintSha256: MIKROTIK_DEFAULT_ENV.TLS_FINGERPRINT ?? null,
+    credentialsEncrypted: encrypt(JSON.stringify(credentials)),
+    sshPassphraseEncrypted,
+    enabled: true,
+    lastSeen: null,
+  });
 }
 
 async function migrateAwgEngineType(db: DBServiceType) {

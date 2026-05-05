@@ -14,9 +14,18 @@ export default definePermissionEventHandler(
 
     let resolvedUserId = userId;
 
-    // If newUser is provided, create the end-user first
+    // Owner picker UI is deferred (see PRD-60-05 follow-up). When neither
+    // userId nor newUser is supplied we fall back to auto-creating an
+    // end-user named after the client so /api/client requests work with
+    // just { name, expiresAt }. Body that *does* supply ownership keeps
+    // the explicit semantics.
     if (newUser && !resolvedUserId) {
       const created = await Database.users.createEndUser(newUser.name);
+      resolvedUserId = created.id;
+    }
+
+    if (!resolvedUserId) {
+      const created = await Database.users.createEndUser(name);
       resolvedUserId = created.id;
     }
 

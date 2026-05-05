@@ -13,13 +13,38 @@ const CreateRouterSchema = z.object({
   tlsRequired: z.boolean().optional(),
   tlsFingerprintSha256: z.string().optional().nullable(),
   credentials: z.object({
-    apiUser: z.string().min(1),
-    apiPassword: z.string().min(1),
+    apiUser: z.string().optional().nullable(),
+    apiPassword: z.string().optional().nullable(),
     sshUser: z.string().optional().nullable(),
     sshKey: z.string().optional().nullable(),
     sshPassphrase: z.string().optional().nullable(),
   }),
   enabled: z.boolean().optional(),
+}).superRefine((val, ctx) => {
+  if (val.transport === 'routeros-api') {
+    if (!val.credentials.apiUser || !val.credentials.apiPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'apiUser and apiPassword are required for routeros-api transport',
+        path: ['credentials'],
+      });
+    }
+  } else if (val.transport === 'ssh') {
+    if (!val.credentials.sshUser) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'sshUser is required for ssh transport',
+        path: ['credentials', 'sshUser'],
+      });
+    }
+    if (!val.credentials.sshKey && !val.credentials.apiPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'either sshKey or apiPassword is required for ssh transport',
+        path: ['credentials', 'sshKey'],
+      });
+    }
+  }
 });
 
 export default defineEventHandler(async (event) => {
@@ -31,8 +56,8 @@ export default defineEventHandler(async (event) => {
   );
 
   const credentials = {
-    apiUser: body.credentials.apiUser,
-    apiPassword: body.credentials.apiPassword,
+    apiUser: body.credentials.apiUser ?? undefined,
+    apiPassword: body.credentials.apiPassword ?? undefined,
     sshUser: body.credentials.sshUser ?? undefined,
     sshKey: body.credentials.sshKey ?? undefined,
   };

@@ -14,7 +14,12 @@ export default definePermissionEventHandler(
     const engine = getEngine(iface.engineType);
 
     let dbClients;
-    if (user.role === roles.ADMIN) {
+    // SUPERADMIN is a strict superset of ADMIN; both must see all clients.
+    // promoteSingleAdminToSuperadmin means single-admin installs end up with
+    // role=SUPERADMIN, so missing this check made /api/client return [] for
+    // the only admin on the system.
+    const isAdmin = user.role === roles.ADMIN || user.role === roles.SUPERADMIN;
+    if (isAdmin) {
       if (filter?.trim()) {
         dbClients = await Database.clients.getAllPublicFiltered(filter);
       } else {

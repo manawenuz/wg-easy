@@ -116,6 +116,7 @@ const roleOptions = computed(() => [
   { label: 'Admin', value: String(roles.ADMIN) },
   { label: 'Operator', value: String(roles.OPERATOR) },
   { label: 'Viewer', value: String(roles.VIEWER) },
+  { label: 'End User', value: String(roles.CLIENT) },
 ]);
 
 async function createUser() {

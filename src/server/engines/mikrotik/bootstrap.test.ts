@@ -89,7 +89,7 @@ describe('bootstrap', () => {
     routerUpdateMock = vi.fn(async () => ({}));
     (globalThis as unknown as { Database: Record<string, unknown> }).Database = {
       routers: { update: routerUpdateMock },
-      interfaces: { getByRouterId: vi.fn(async () => []) },
+      interfaces: { getByRouterId: vi.fn(async () => []), get: vi.fn(async () => null), update: vi.fn(async () => {}) },
     };
   });
 

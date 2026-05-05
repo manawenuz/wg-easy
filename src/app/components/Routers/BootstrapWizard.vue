@@ -267,7 +267,11 @@ const form = ref({
   sshUser: 'admin',
   sshPassword: '',
   sshKey: '',
-  ifaceName: 'wg-easy',
+  // Must match the local interface row PK (currently always 'wg0' until
+  // PRD-30-05 lands and multi-interface arrives). If the user picks a
+  // different name here, syncInterface will fail to find the WG iface on the
+  // router by name.
+  ifaceName: 'wg0',
   listenPort: 51820,
   ipv4Cidr: '10.8.0.1/24',
   ipv6Cidr: '',

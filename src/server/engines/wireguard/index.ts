@@ -3,6 +3,7 @@ import debug from 'debug';
 
 import { configgen } from './configgen';
 import { applySpeedLimit, clearSpeedLimit } from './speedlimit';
+import { DnsmasqManager } from './dnsmasq';
 import type { LocalShellTransport } from '../../transports/local-shell';
 import type {
   VpnEngine,
@@ -17,6 +18,11 @@ import { parseWgDump } from '../wg-like';
 
 const WG_DEBUG = debug('WireGuard');
 
+function cidrAddress(cidr: string): string {
+  const slash = cidr.indexOf('/');
+  return slash === -1 ? cidr : cidr.slice(0, slash);
+}
+
 export class WireguardEngine implements VpnEngine {
   readonly id = 'wireguard' as const;
   get capabilities(): EngineCapabilities {
@@ -29,6 +35,7 @@ export class WireguardEngine implements VpnEngine {
   }
 
   #cronJobStarted = false;
+  #dnsmasq = new DnsmasqManager();
 
   constructor(private readonly transport: LocalShellTransport) {}
 
@@ -99,6 +106,16 @@ export class WireguardEngine implements VpnEngine {
     await this.#reapplySpeedLimits(wgInterface);
     WG_DEBUG('Speed limits re-applied successfully');
 
+    // Start embedded DNS resolver if enabled
+    const userConfig = await Database.userConfigs.get();
+    if (userConfig.embeddedDnsEnabled) {
+      await this.#dnsmasq.start(userConfig.dnsUpstream, !WG_ENV.DISABLE_IPV6, {
+        ifaceName: wgInterface.name,
+        ipv4: cidrAddress(wgInterface.ipv4Cidr),
+        ipv6: WG_ENV.DISABLE_IPV6 ? null : cidrAddress(wgInterface.ipv6Cidr),
+      });
+    }
+
     if (!this.#cronJobStarted) {
       this.#cronJobStarted = true;
       WG_DEBUG('Starting cron job');
@@ -113,6 +130,7 @@ export class WireguardEngine implements VpnEngine {
   }
 
   async bringDown(iface: InterfaceType): Promise<void> {
+    await this.#dnsmasq.stop();
     await this.transport.exec(`wg-quick down ${iface.name}`).catch(() => {});
   }
 
@@ -121,6 +139,16 @@ export class WireguardEngine implements VpnEngine {
     await this.#writeConfig(iface, peers, hooks);
     await this.#sync(iface.name);
     await this.#applyFirewall(iface);
+    const userConfig = await Database.userConfigs.get();
+    if (userConfig.embeddedDnsEnabled) {
+      await this.#dnsmasq.reload(userConfig.dnsUpstream, !WG_ENV.DISABLE_IPV6, {
+        ifaceName: iface.name,
+        ipv4: cidrAddress(iface.ipv4Cidr),
+        ipv6: WG_ENV.DISABLE_IPV6 ? null : cidrAddress(iface.ipv6Cidr),
+      });
+    } else {
+      await this.#dnsmasq.stop();
+    }
   }
 
   async createPeer(iface: InterfaceType, _peer: Client): Promise<void> {

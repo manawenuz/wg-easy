@@ -25,6 +25,8 @@ export const UserConfigUpdateSchema = schemaForType<UserConfigUpdateType>()(
     defaultMtu: MtuSchema,
     defaultPersistentKeepalive: PersistentKeepaliveSchema,
     defaultDns: DnsSchema,
+    embeddedDnsEnabled: z.boolean(),
+    dnsUpstream: DnsSchema,
     defaultAllowedIps: AllowedIpsSchema,
     defaultJC: JcSchema,
     defaultJMin: JminSchema,

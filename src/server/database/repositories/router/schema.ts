@@ -19,6 +19,9 @@ export const router = sqliteTable('router', {
   tlsRequired: integer('tls_required', { mode: 'boolean' }).notNull().default(true),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   lastSeen: integer('last_seen', { mode: 'timestamp' }),
+  lastSeenOkAt: integer('last_seen_ok_at', { mode: 'timestamp' }),
+  lastSeenError: text('last_seen_error'),
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),

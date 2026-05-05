@@ -8,16 +8,12 @@ vi.mock('./process', () => ({
     isRunning = vi.fn().mockReturnValue(true);
     uapiSocket = vi.fn().mockReturnValue('/var/run/wireguard/wg0.sock');
   },
-  uapiSet: vi.fn().mockResolvedValue(undefined),
-  uapiGet: vi.fn().mockResolvedValue(''),
-  parseUapiGet: vi.fn().mockReturnValue([]),
 }));
 
 describe('BoringtunEngine', () => {
   let BoringtunEngine: typeof import('./index').BoringtunEngine;
   let engine: import('./index').BoringtunEngine;
   let transportExec: ReturnType<typeof vi.fn>;
-  let processModule: typeof import('./process');
 
   const mockInterface = {
     name: 'wg0',
@@ -119,6 +115,8 @@ describe('BoringtunEngine', () => {
         get: vi.fn(async () => ({
           id: 'wg0',
           defaultDns: ['1.1.1.1'],
+          embeddedDnsEnabled: false,
+          dnsUpstream: ['1.1.1.1', '1.0.0.1'],
           defaultAllowedIps: ['0.0.0.0/0', '::/0'],
           defaultMtu: 1420,
           defaultPersistentKeepalive: 25,
@@ -155,7 +153,6 @@ describe('BoringtunEngine', () => {
       WG_EXECUTABLE: 'wg',
     };
 
-    processModule = await import('./process');
     const mod = await import('./index');
     BoringtunEngine = mod.BoringtunEngine;
     engine = new BoringtunEngine(mockTransport);
@@ -190,19 +187,14 @@ describe('BoringtunEngine', () => {
     expect(health.ok).toBe(false);
   });
 
-  it('syncInterface uses UAPI to replace peers', async () => {
+  it('syncInterface uses wg setconf to sync peers', async () => {
     await engine.syncInterface(
       mockInterface as unknown as import('#db/repositories/interface/types').InterfaceType,
       [mockClient as unknown as import('../types').Client]
     );
 
-    expect(processModule.uapiSet).toHaveBeenCalledWith(
-      '/var/run/wireguard/wg0.sock',
-      expect.stringContaining('replace_peers=true')
-    );
-    expect(processModule.uapiSet).toHaveBeenCalledWith(
-      '/var/run/wireguard/wg0.sock',
-      expect.stringContaining('public_key=clientPub')
+    expect(transportExec).toHaveBeenCalledWith(
+      expect.stringContaining('wg setconf wg0')
     );
   });
 
@@ -212,9 +204,8 @@ describe('BoringtunEngine', () => {
       mockClient as unknown as import('../types').Client
     );
 
-    expect(processModule.uapiSet).toHaveBeenCalledWith(
-      '/var/run/wireguard/wg0.sock',
-      expect.stringContaining('replace_peers=true')
+    expect(transportExec).toHaveBeenCalledWith(
+      expect.stringContaining('wg setconf wg0')
     );
   });
 
@@ -224,35 +215,23 @@ describe('BoringtunEngine', () => {
       mockClient.publicKey
     );
 
-    expect(processModule.uapiSet).toHaveBeenCalledWith(
-      '/var/run/wireguard/wg0.sock',
-      expect.stringContaining('replace_peers=true')
+    expect(transportExec).toHaveBeenCalledWith(
+      expect.stringContaining('wg setconf wg0')
     );
   });
 
-  it('sampleUsage parses UAPI get response', async () => {
-    const mockSamples = [
-      {
-        publicKey: 'clientPub',
-        rxBytes: 1234n,
-        txBytes: 5678n,
-        lastHandshakeAt: new Date(1710000000000),
-        endpoint: '1.2.3.4:51820',
-      },
-    ];
-
-    vi.mocked(processModule.uapiGet).mockResolvedValueOnce('mock-response');
-    vi.mocked(processModule.parseUapiGet).mockReturnValueOnce(mockSamples);
+  it('sampleUsage parses wg dump output', async () => {
+    transportExec.mockResolvedValueOnce({
+      stdout: 'wg0\tprivKey\tpubKey\t51820\nclientPub\t(none)\t0\t1234\t5678\t1710000000\t25\n',
+      stderr: '',
+    });
 
     const usage = await engine.sampleUsage(
       mockInterface as unknown as import('#db/repositories/interface/types').InterfaceType
     );
 
-    expect(processModule.uapiGet).toHaveBeenCalledWith(
-      '/var/run/wireguard/wg0.sock'
-    );
-    expect(processModule.parseUapiGet).toHaveBeenCalledWith('mock-response');
-    expect(usage).toEqual(mockSamples);
+    expect(transportExec).toHaveBeenCalledWith('wg show wg0 dump');
+    expect(usage).toBeInstanceOf(Array);
   });
 
   it('applySpeedLimit issues tc commands', async () => {

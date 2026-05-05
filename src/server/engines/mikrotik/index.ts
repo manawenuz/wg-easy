@@ -83,10 +83,32 @@ export class MikrotikEngine implements VpnEngine {
     if (rows.length === 0) {
       throw new Error(`WireGuard interface ${iface.name} not found on router`);
     }
-    const id = String(rows[0]!['.id'] ?? rows[0]!.id ?? '');
+    const row = rows[0]!;
+    const id = String(row['.id'] ?? row.id ?? '');
     if (!id) {
       throw new Error(`WireGuard interface ${iface.name} has no ID`);
     }
+
+    // Reconcile the on-router interface to wg-easy's stored truth. wg-easy is
+    // the source of truth for the server private key and listen port: client
+    // configs hand out the local public key, so the router must hold the
+    // matching private key. If they drift, every client config fails to
+    // authenticate. Set both fields and let RouterOS no-op when unchanged.
+    const desired: Record<string, string> = {
+      'private-key': iface.privateKey,
+      'listen-port': String(iface.port),
+    };
+    if (iface.mtu) desired.mtu = String(iface.mtu);
+    const needsUpdate =
+      String(row['private-key'] ?? '') !== iface.privateKey ||
+      String(row['listen-port'] ?? '') !== String(iface.port);
+    if (needsUpdate) {
+      MT_DEBUG(
+        `Reconciling ${iface.name} on router #${router.id}: pushing local private-key/listen-port (router pubkey was ${row['public-key']})`
+      );
+      await api.set('/interface/wireguard', id, desired);
+    }
+
     await api.set('/interface/wireguard', id, { disabled: 'no' });
   }
 

@@ -1,38 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RouterOsApiTransport } from './routeros-api';
 
-function createMockRouterOSClient() {
-  const mockMenu = {
-    where: vi.fn().mockReturnThis(),
-    getAll: vi.fn().mockResolvedValue([{ name: 'test' }]),
-    add: vi.fn().mockResolvedValue([{ '.id': '*1' }]),
-    set: vi.fn().mockResolvedValue([]),
-    remove: vi.fn().mockResolvedValue([]),
-    exec: vi.fn().mockResolvedValue([]),
-  };
+const mockSend = vi.fn();
+const mockLogin = vi.fn().mockResolvedValue(undefined);
+const mockConnect = vi.fn().mockResolvedValue(undefined);
+const mockClose = vi.fn().mockResolvedValue(undefined);
 
-  return {
-    connect: vi.fn().mockResolvedValue({
-      menu: vi.fn().mockReturnValue(mockMenu),
-    }),
-    isConnected: vi.fn().mockReturnValue(true),
-    close: vi.fn().mockResolvedValue(undefined),
-    _mockMenu: mockMenu,
-  };
-}
+vi.mock('./routeros-api-protocol', () => ({
+  RouterOsApiProtocol: vi.fn().mockImplementation(() => ({
+    connect: mockConnect,
+    login: mockLogin,
+    send: mockSend,
+    close: mockClose,
+  })),
+}));
 
-vi.mock('routeros-client', () => {
-  return {
-    RouterOSClient: vi.fn().mockImplementation(createMockRouterOSClient),
-  };
-});
+vi.mock('./tls-pin', () => ({
+  checkServerIdentity: vi.fn().mockReturnValue(undefined),
+}));
 
 describe('RouterOsApiTransport', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConnect.mockResolvedValue(undefined);
+    mockLogin.mockResolvedValue(undefined);
+    mockClose.mockResolvedValue(undefined);
   });
 
   it('connects and prints rows', async () => {
+    mockSend.mockResolvedValueOnce([
+      { type: '!re', attributes: { name: 'test' } },
+      { type: '!done', attributes: {} },
+    ]);
+
     const transport = new RouterOsApiTransport({
       host: '192.168.1.1',
       user: 'admin',
@@ -41,9 +41,15 @@ describe('RouterOsApiTransport', () => {
 
     const rows = await transport.print('/interface/wireguard/peers');
     expect(rows).toEqual([{ name: 'test' }]);
+    expect(mockSend).toHaveBeenCalledWith(['/interface/wireguard/peers/print']);
   });
 
   it('writes a new entry', async () => {
+    mockSend.mockResolvedValueOnce([
+      { type: '!re', attributes: { '.id': '*1' } },
+      { type: '!done', attributes: {} },
+    ]);
+
     const transport = new RouterOsApiTransport({
       host: '192.168.1.1',
       user: 'admin',
@@ -59,6 +65,8 @@ describe('RouterOsApiTransport', () => {
   });
 
   it('closes connection', async () => {
+    mockSend.mockResolvedValue([{ type: '!done', attributes: {} }]);
+
     const transport = new RouterOsApiTransport({
       host: '192.168.1.1',
       user: 'admin',
@@ -70,5 +78,6 @@ describe('RouterOsApiTransport', () => {
 
     await transport.close();
     expect(transport.isConnected()).toBe(false);
+    expect(mockClose).toHaveBeenCalled();
   });
 });

@@ -85,6 +85,27 @@
       "when": 1777973000000,
       "tag": "0011_per_client_end_users",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1777974000000,
+      "tag": "0012_obfuscator_host_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1778000000000,
+      "tag": "0013_embedded_dns",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1778001000000,
+      "tag": "0014_router_health",
+      "breakpoints": true
     }
   ]
 }

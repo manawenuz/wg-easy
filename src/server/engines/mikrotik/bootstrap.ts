@@ -304,17 +304,56 @@ async function stepApiUser(ssh: SshTransport): Promise<StepResult & { password?:
 
 async function stepApiSsl(ssh: SshTransport): Promise<StepResult> {
   try {
-    const enabled = parseCount(
-      await execAssert(ssh, '/ip/service/print count-only where name="api-ssl" and enabled=yes')
+    // RouterOS exposes `disabled` (yes/no) on /ip/service items, not `enabled`.
+    // Querying enabled=yes always returned 0 here, so we always entered the
+    // setup branch and re-ran the enable command.
+    const alreadyEnabled = parseCount(
+      await execAssert(ssh, '/ip/service/print count-only where name="api-ssl" and disabled=no')
     );
 
-    if (enabled === 0) {
-      const certCount = parseCount(await execAssert(ssh, '/certificate/print count-only'));
-      if (certCount === 0) {
-        await execAssert(ssh, '/certificate/add name="api-ssl-cert" common-name="RouterOS"');
-        await execAssert(ssh, '/certificate/sign "api-ssl-cert"');
+    // Ensure a self-signed cert exists named api-ssl-cert and is signed.
+    // Idempotent: re-running on a router with a valid cert is a no-op.
+    const certCount = parseCount(
+      await execAssert(ssh, '/certificate/print count-only where name="api-ssl-cert"')
+    );
+    if (certCount === 0) {
+      await execAssert(
+        ssh,
+        '/certificate/add name=api-ssl-cert common-name=RouterOS key-usage=key-cert-sign,crl-sign'
+      );
+      await execAssert(ssh, '/certificate/sign api-ssl-cert');
+      // Add a server-auth cert signed by the CA. Some ROS 7.x require a
+      // separate end-entity cert with key-usage=tls-server for api-ssl.
+      const hasServer = parseCount(
+        await execAssert(ssh, '/certificate/print count-only where name="api-ssl-server"')
+      );
+      if (hasServer === 0) {
+        await execAssert(
+          ssh,
+          '/certificate/add name=api-ssl-server common-name=api-ssl-server key-usage=tls-server'
+        );
+        // sign with our self-signed CA when possible; if it fails (older ROS),
+        // self-sign as fallback so api-ssl still has a usable cert.
+        try {
+          await execAssert(ssh, '/certificate/sign api-ssl-server ca=api-ssl-cert');
+        } catch {
+          await execAssert(ssh, '/certificate/sign api-ssl-server');
+        }
       }
-      await execAssert(ssh, '/ip/service/set api-ssl certificate="api-ssl-cert" enabled=yes');
+    }
+
+    // Set the cert and disabled flag separately. Some ROS versions reject
+    // multiple property=value pairs in a single set call for /ip/service.
+    // Prefer the leaf (api-ssl-server) cert; fall back to api-ssl-cert.
+    const useCert = parseCount(
+      await execAssert(ssh, '/certificate/print count-only where name="api-ssl-server"')
+    ) > 0
+      ? 'api-ssl-server'
+      : 'api-ssl-cert';
+
+    await execAssert(ssh, `/ip/service/set [find name=api-ssl] certificate=${useCert}`);
+    if (alreadyEnabled === 0) {
+      await execAssert(ssh, '/ip/service/set [find name=api-ssl] disabled=no');
     }
 
     return { ok: true };
@@ -322,7 +361,8 @@ async function stepApiSsl(ssh: SshTransport): Promise<StepResult> {
     return {
       ok: false,
       error: err instanceof Error ? err.message : 'Failed to enable API-SSL',
-      recovery: 'Manually enable api-ssl service via Winbox/WebFig and retry.',
+      recovery:
+        'Run on the router: /certificate/add name=api-ssl-cert common-name=RouterOS key-usage=key-cert-sign,crl-sign; /certificate/sign api-ssl-cert; /ip/service/set [find name=api-ssl] certificate=api-ssl-cert disabled=no',
     };
   }
 }
@@ -440,6 +480,35 @@ export async function bootstrap(
     });
     await ssh.close();
     return;
+  }
+
+  // Step 12: bind the active wg-easy interface to this router so subsequent
+  // peer mutations land on the MikroTik instead of the local 'self' engine.
+  // Without this step, bootstrap leaves the router registered but inactive,
+  // and clients keep going to the local kernel WG. Skipped silently if the
+  // single-interface model isn't present.
+  emit({ step: 'activate', status: 'pending' });
+  try {
+    const iface = await Database.interfaces.get().catch(() => null);
+    if (iface) {
+      await Database.interfaces.update({
+        engineType: 'mikrotik',
+        port: opts.listenPort,
+        ipv4Cidr: opts.ipv4Cidr,
+        ipv6Cidr: opts.ipv6Cidr ?? iface.ipv6Cidr,
+        routerId: router.id,
+      } as Parameters<typeof Database.interfaces.update>[0]);
+      emit({ step: 'activate', status: 'ok', detail: `Bound interface to router #${router.id}` });
+    } else {
+      emit({ step: 'activate', status: 'ok', detail: 'No active interface to bind; router is registered.' });
+    }
+  } catch (err) {
+    emit({
+      step: 'activate',
+      status: 'error',
+      detail: err instanceof Error ? err.message : 'Failed to bind interface',
+      recovery: 'You can bind the interface manually via Routers → Activate.',
+    });
   }
 
   await ssh.close();

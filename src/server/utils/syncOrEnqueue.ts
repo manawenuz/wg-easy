@@ -16,7 +16,7 @@ export async function syncOrEnqueue(
     await engine.syncInterface(iface, clients);
     return { queued: false };
   } catch {
-    await Database.pendingMutations.enqueue(iface.id, 'syncInterface', {}, clientId);
+    await Database.pendingMutations.enqueue(iface.name, 'syncInterface', {}, clientId);
     return { queued: true };
   }
 }

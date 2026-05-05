@@ -19,10 +19,7 @@ export default defineEventHandler(async (event) => {
   let name = user.name;
   if (principal.kind === 'user') {
     role = roles.CLIENT;
-    const client = await Database.clients.get(principal.clientId);
-    if (client) {
-      name = client.name;
-    }
+    // name comes from the user record (PRD-60-05 model: session bound to user, not a single client)
   }
 
   return {

@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import { generateRandomHeaderValue, parseWgDump } from '../wg-like';
 import { applySpeedLimit, clearSpeedLimit } from '../wireguard/speedlimit';
+import { DnsmasqManager } from '../wireguard/dnsmasq';
 import { configgen } from './configgen';
 
 const AWG_DEBUG = debug('AmneziaWG');
@@ -23,6 +24,17 @@ const AWG_DEBUG = debug('AmneziaWG');
 interface Transport {
   exec(cmd: string): Promise<{ stdout: string; stderr: string; code?: number | null }>;
   writeFile(path: string, content: string, mode?: number): Promise<void>;
+}
+
+/**
+ * Strip the prefix length off a CIDR. Tolerates inputs that are already
+ * bare addresses ("10.8.0.1" → "10.8.0.1"). Used to feed dnsmasq a literal
+ * listen-address — the gateway IP, not the network — derived from whatever
+ * CIDR the operator stored (defaults work; non-default CIDRs work too).
+ */
+function cidrAddress(cidr: string): string {
+  const slash = cidr.indexOf('/');
+  return slash === -1 ? cidr : cidr.slice(0, slash);
 }
 
 function dockerWrap(cmd: string): string {
@@ -46,6 +58,7 @@ export class AmneziaWgEngine implements VpnEngine {
   #localTransport: LocalShellTransport;
   #dockerMode = false;
   #dockerChecked = false;
+  #dnsmasq = new DnsmasqManager();
 
   constructor(transport: LocalShellTransport) {
     this.#localTransport = transport;
@@ -229,6 +242,19 @@ export class AmneziaWgEngine implements VpnEngine {
     await this.#reapplySpeedLimits(wgInterface);
     AWG_DEBUG('Speed limits re-applied successfully');
 
+    // Start the embedded DNS resolver if the operator enabled it. Without
+    // this, clients with `DNS=10.8.0.1` (the default when embedded_dns is
+    // on) get no DNS responder and the tunnel looks "broken" even though
+    // packets route fine.
+    const userConfig = await Database.userConfigs.get();
+    if (userConfig.embeddedDnsEnabled) {
+      await this.#dnsmasq.start(userConfig.dnsUpstream, !WG_ENV.DISABLE_IPV6, {
+        ifaceName: wgInterface.name,
+        ipv4: cidrAddress(wgInterface.ipv4Cidr),
+        ipv6: WG_ENV.DISABLE_IPV6 ? null : cidrAddress(wgInterface.ipv6Cidr),
+      });
+    }
+
     if (!this.#cronJobStarted) {
       this.#cronJobStarted = true;
       AWG_DEBUG('Starting cron job');
@@ -243,6 +269,7 @@ export class AmneziaWgEngine implements VpnEngine {
   }
 
   async bringDown(iface: InterfaceType): Promise<void> {
+    await this.#dnsmasq.stop();
     await this.#exec(iface, `awg-quick down ${iface.name}`).catch(() => {});
   }
 
@@ -251,6 +278,16 @@ export class AmneziaWgEngine implements VpnEngine {
     await this.#writeConfig(iface, peers, hooks);
     await this.#sync(iface);
     await this.#applyFirewall(iface);
+    const userConfig = await Database.userConfigs.get();
+    if (userConfig.embeddedDnsEnabled) {
+      await this.#dnsmasq.reload(userConfig.dnsUpstream, !WG_ENV.DISABLE_IPV6, {
+        ifaceName: iface.name,
+        ipv4: cidrAddress(iface.ipv4Cidr),
+        ipv6: WG_ENV.DISABLE_IPV6 ? null : cidrAddress(iface.ipv6Cidr),
+      });
+    } else {
+      await this.#dnsmasq.stop();
+    }
   }
 
   async createPeer(iface: InterfaceType, _peer: Client): Promise<void> {

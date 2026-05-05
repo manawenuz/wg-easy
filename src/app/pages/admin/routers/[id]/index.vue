@@ -99,7 +99,12 @@
           @click="testConnection"
         />
         <FormSecondaryActionField
-          v-if="routerData?.transport === 'ssh'"
+          v-if="routerData?.engineType === 'mikrotik'"
+          :label="t('admin.routers.rscDownload')"
+          @click="downloadRsc"
+        />
+        <FormSecondaryActionField
+          v-if="routerData?.engineType === 'mikrotik'"
           :label="t('admin.bootstrap.title')"
           @click="goToBootstrap"
         />
@@ -322,6 +327,81 @@ async function testConnection() {
 
 function goToBootstrap() {
   routerNav.push(`/admin/routers/${id}/bootstrap`);
+}
+
+function downloadRsc() {
+  const r = routerData.value;
+  if (!r) return;
+  const mode = r.transport === 'ssh'
+    ? 'ssh'
+    : r.tlsRequired
+      ? 'api-tls'
+      : 'api-plain';
+  const isSshMode = mode === 'ssh';
+  const apiPort = r.apiPort ?? (mode === 'api-tls' ? 8729 : 8728);
+  const sshPort = r.port ?? 22;
+  const lines: string[] = [
+    '# wg-easy MikroTik bootstrap script (.rsc)',
+    `# Router: ${r.name}  Host: ${r.host ?? ''}`,
+    `# Mode: ${mode}`,
+    `# Generated: ${new Date().toISOString()}`,
+    '#',
+    '# Upload via Winbox/WebFig -> Files, then run on the MikroTik:',
+    `#   /import file-name=${r.name}-bootstrap.rsc`,
+    '# Note: this script does NOT include credentials. Run the dialog version',
+    '# from /admin/routers (Add Router) if you need user/password embedded.',
+    '',
+    '/user/group',
+    ':if ([:len [find name=wg-easy]] > 0) do={ remove [find name=wg-easy] }',
+    'add name=wg-easy policy=read,write,test,api,ssh,sensitive comment="wg-easy automation"',
+    '',
+    '/certificate',
+    ':if ([:len [find name=api-ssl-cert]] = 0) do={',
+    '  add name=api-ssl-cert common-name=RouterOS key-usage=key-cert-sign,crl-sign',
+    '  sign api-ssl-cert',
+    '}',
+    ':if ([:len [find name=api-ssl-server]] = 0) do={',
+    '  add name=api-ssl-server common-name=api-ssl-server key-usage=tls-server',
+    '  :do { sign api-ssl-server ca=api-ssl-cert } on-error={ sign api-ssl-server }',
+    '}',
+    '',
+    '/ip/service',
+  ];
+  if (mode === 'api-tls') {
+    lines.push(
+      'set [find name=api-ssl] certificate=api-ssl-server',
+      `set [find name=api-ssl] port=${apiPort}`,
+      'set [find name=api-ssl] disabled=no',
+      'set [find name=api] disabled=yes',
+    );
+  } else if (mode === 'api-plain') {
+    lines.push(`set [find name=api] port=${apiPort}`, 'set [find name=api] disabled=no');
+  } else {
+    lines.push(`set [find name=ssh] port=${sshPort}`, 'set [find name=ssh] disabled=no');
+  }
+  lines.push(
+    '',
+    '/interface/wireguard',
+    ':if ([:len [find name=wg0]] = 0) do={ add name=wg0 listen-port=51820 mtu=1420 }',
+    '/ip/address',
+    ':if ([:len [find interface=wg0]] = 0) do={ add interface=wg0 address=10.8.0.1/24 }',
+    '',
+    '/ip/firewall/filter',
+    `:if ([:len [find comment="wg-easy: mgmt"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${isSshMode ? sshPort : apiPort} comment="wg-easy: mgmt" place-before=0 }`,
+    ':if ([:len [find comment="wg-easy: wireguard"]] = 0) do={ add chain=input action=accept protocol=udp dst-port=51820 comment="wg-easy: wireguard" place-before=0 }',
+    '',
+    ':put "wg-easy bootstrap complete."',
+  );
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safe = (r.name || 'wg-easy').replace(/[^a-zA-Z0-9_.-]/g, '_');
+  a.download = `${safe}-bootstrap.rsc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function deleteRouter() {

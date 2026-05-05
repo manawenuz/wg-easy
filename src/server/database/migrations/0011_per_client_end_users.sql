@@ -24,7 +24,7 @@ WHERE u.role != 2
     SELECT 1 FROM users_table eu
     WHERE eu.username = 'auto-' || c.id
   );
-
+--> statement-breakpoint
 -- Step 2: Reassign each such client to its newly-created end-user.
 UPDATE clients_table
 SET user_id = (

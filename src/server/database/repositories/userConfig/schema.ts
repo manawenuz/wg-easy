@@ -15,6 +15,13 @@ export const userConfig = sqliteTable('user_configs_table', {
   defaultMtu: int('default_mtu').notNull(),
   defaultPersistentKeepalive: int('default_persistent_keepalive').notNull(),
   defaultDns: text('default_dns', { mode: 'json' }).$type<string[]>().notNull(),
+  embeddedDnsEnabled: int('embedded_dns_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  dnsUpstream: text('dns_upstream', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'["1.1.1.1","1.0.0.1"]'`),
   defaultAllowedIps: text('default_allowed_ips', { mode: 'json' })
     .$type<string[]>()
     .notNull(),

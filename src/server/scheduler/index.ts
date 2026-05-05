@@ -1,4 +1,5 @@
 import debug from 'debug';
+import { runExpirationEnforcer } from './expirationEnforcer';
 import { runUsagePoller } from './usagePoller';
 import { runQuotaEvaluator } from './quotaEvaluator';
 import { runPeriodResetter } from './periodResetter';
@@ -35,6 +36,15 @@ export function startScheduler() {
       await runPeriodResetter();
     } catch (err) {
       SCHEDULER_DEBUG('Period resetter error:', err);
+    }
+  }, 60_000);
+
+  // Auto-disable expired clients every 60 seconds
+  setIntervalImmediately(async () => {
+    try {
+      await runExpirationEnforcer();
+    } catch (err) {
+      SCHEDULER_DEBUG('Expiration enforcer error:', err);
     }
   }, 60_000);
 
