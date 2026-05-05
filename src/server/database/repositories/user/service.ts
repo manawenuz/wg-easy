@@ -313,6 +313,8 @@ export class UserService {
       return result[0]!;
     });
   }
+
+  async createAdmin(
     username: string,
     password: string,
     role: Role,
