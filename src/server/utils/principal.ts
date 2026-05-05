@@ -3,10 +3,11 @@ import type { H3Event } from 'h3';
 import type { UserType } from '#db/repositories/user/types';
 import { isPasswordValid } from './password';
 import { getWGSession, getWGUserSession } from './session';
+import { roles } from '#shared/utils/permissions';
 
 export type Principal =
   | { kind: 'admin'; user: UserType }
-  | { kind: 'user'; user: UserType; clientId: ID }
+  | { kind: 'user'; user: UserType; dashboardUserId: ID }
   | { kind: 'token'; user: UserType; tokenId: number; scopes: string[] };
 
 export async function resolvePrincipal(
@@ -23,7 +24,7 @@ export async function resolvePrincipal(
       if (tokenPrincipal) return tokenPrincipal;
     }
 
-    // 2. Basic auth → admin
+    // 2. Basic auth → admin only (CLIENT-role users cannot use Basic auth)
     if (method === 'Basic' && value) {
       const adminPrincipal = await resolveBasicAuth(value);
       if (adminPrincipal) return adminPrincipal;
@@ -43,13 +44,15 @@ export async function resolvePrincipal(
     // ignore session errors
   }
 
-  // 4. User session cookie
+  // 4. User session cookie — bound to dashboardUserId
   try {
     const userSession = await getWGUserSession(event);
-    if (userSession.data.userId && userSession.data.clientId) {
+    const dashboardUserId =
+      userSession.data.dashboardUserId ?? userSession.data.clientId; // backward compat
+    if (userSession.data.userId && dashboardUserId) {
       const user = await Database.users.get(userSession.data.userId);
       if (user && user.enabled) {
-        return { kind: 'user', user, clientId: userSession.data.clientId };
+        return { kind: 'user', user, dashboardUserId };
       }
     }
   } catch {
@@ -103,6 +106,9 @@ async function resolveBasicAuth(value: string): Promise<Principal | null> {
 
   const foundUser = await Database.users.getByUsername(username);
   if (!foundUser) return null;
+
+  // CLIENT-role users cannot authenticate via Basic auth
+  if (foundUser.role === roles.CLIENT) return null;
 
   const passwordValid = await isPasswordValid(password, foundUser.password);
   if (!passwordValid) return null;

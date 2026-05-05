@@ -1,5 +1,3 @@
-import type { SharedPublicUser } from '~~/shared/utils/permissions';
-
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'dashboard:self');
 
@@ -12,20 +10,22 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const client = await Database.clients.get(principal.clientId);
-  if (!client) {
+  const user = await Database.users.get(principal.dashboardUserId);
+  if (!user) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Client not found',
+      statusMessage: 'User not found',
     });
   }
 
+  const clients = await Database.clients.getForUser(principal.dashboardUserId);
+
   return {
     user: {
-      id: client.id,
-      name: client.name,
-      email: principal.user.email,
-    } satisfies Pick<SharedPublicUser, 'id' | 'name' | 'email'>,
-    clientsCount: 1,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    },
+    clientsCount: clients.length,
   };
 });

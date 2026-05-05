@@ -4,6 +4,7 @@ import { user } from './schema';
 import type { UserType } from './types';
 import type { DBType } from '#db/sqlite';
 import type { Role } from '#shared/utils/permissions';
+import { roles } from '#shared/utils/permissions';
 
 type LoginResult =
   | {
@@ -287,7 +288,31 @@ export class UserService {
       .execute();
   }
 
-  async createAdmin(
+  async createEndUser(name: string, email?: string | null) {
+    return this.#db.transaction(async (tx) => {
+      // Generate a unique username from the name
+      const base = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'user';
+      const existing = await tx.query.user.findMany().execute();
+      const taken = new Set(existing.map((u) => u.username));
+      let username = base;
+      let i = 1;
+      while (taken.has(username)) {
+        username = `${base}-${i++}`;
+      }
+
+      const result = await tx.insert(user).values({
+        username,
+        password: '', // no password — key-only auth
+        email: email ?? null,
+        name,
+        role: roles.CLIENT,
+        totpVerified: false,
+        enabled: true,
+      }).returning({ id: user.id });
+
+      return result[0]!;
+    });
+  }
     username: string,
     password: string,
     role: Role,

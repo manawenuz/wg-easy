@@ -93,7 +93,7 @@ describe('dashboard/login/verify.post', () => {
     const result = await verifyHandler(event);
 
     expect(result).toEqual({ ok: true });
-    expect(mockSession.update).toHaveBeenCalledWith({ userId: 42, clientId: 1 });
+    expect(mockSession.update).toHaveBeenCalledWith({ userId: 42, dashboardUserId: 42 });
   });
 
   it('returns 401 for invalid challenge', async () => {

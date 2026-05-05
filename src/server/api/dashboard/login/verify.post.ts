@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
       secure: !WG_ENV.INSECURE,
     },
   });
-  await session.update({ userId: user.id, clientId: clientRecord.id });
+  await session.update({ userId: user.id, dashboardUserId: user.id });
 
   return { ok: true };
 });

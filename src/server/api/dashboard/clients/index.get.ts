@@ -12,13 +12,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const client = await Database.clients.get(principal.clientId);
-  if (!client) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Client not found',
-    });
-  }
+  const clients = await Database.clients.getForUser(principal.dashboardUserId);
 
   const iface = await Database.interfaces.get();
   const engine = getEngine(iface.engineType);
@@ -27,32 +21,34 @@ export default defineEventHandler(async (event) => {
   const quotas = await Database.quotas.getAll();
   const speedLimits = await Database.speedLimits.getAll();
 
-  const sample = usage.find((s) => s.publicKey === client.publicKey);
-  const quota = quotas.find((q) => q.clientId === client.id);
-  const speedLimit = speedLimits.find((sl) => sl.clientId === client.id);
+  return clients.map((client) => {
+    const sample = usage.find((s) => s.publicKey === client.publicKey);
+    const quota = quotas.find((q) => q.clientId === client.id);
+    const speedLimit = speedLimits.find((sl) => sl.clientId === client.id);
 
-  return [{
-    id: client.id,
-    name: client.name,
-    enabled: client.enabled,
-    ipv4: client.ipv4Address,
-    lastHandshakeAt: sample?.lastHandshakeAt ?? null,
-    rxBytes: sample ? Number(sample.rxBytes) : null,
-    txBytes: sample ? Number(sample.txBytes) : null,
-    expiresAt: client.expiresAt ?? null,
-    quota: quota
-      ? {
-          limitBytes: quota.limitBytes,
-          usedBytes: quota.usedBytes,
-          period: quota.period,
-          periodEnd: quota.periodEnd,
-        }
-      : undefined,
-    speedLimit: speedLimit
-      ? {
-          upKbps: speedLimit.upKbps,
-          downKbps: speedLimit.downKbps,
-        }
-      : undefined,
-  }];
+    return {
+      id: client.id,
+      name: client.name,
+      enabled: client.enabled,
+      ipv4: client.ipv4Address,
+      lastHandshakeAt: sample?.lastHandshakeAt ?? null,
+      rxBytes: sample ? Number(sample.rxBytes) : null,
+      txBytes: sample ? Number(sample.txBytes) : null,
+      expiresAt: client.expiresAt ?? null,
+      quota: quota
+        ? {
+            limitBytes: quota.limitBytes,
+            usedBytes: quota.usedBytes,
+            period: quota.period,
+            periodEnd: quota.periodEnd,
+          }
+        : undefined,
+      speedLimit: speedLimit
+        ? {
+            upKbps: speedLimit.upKbps,
+            downKbps: speedLimit.downKbps,
+          }
+        : undefined,
+    };
+  });
 });

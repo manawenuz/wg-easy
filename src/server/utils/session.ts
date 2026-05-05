@@ -3,7 +3,9 @@ import type { UserType } from '#db/repositories/user/types';
 
 export type WGSession = Partial<{
   userId: ID;
+  /** @deprecated use dashboardUserId */
   clientId: ID;
+  dashboardUserId: ID;
 }>;
 
 const name = 'wg-easy';

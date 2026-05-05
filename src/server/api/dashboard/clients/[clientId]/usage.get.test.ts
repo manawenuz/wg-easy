@@ -16,13 +16,13 @@ describe('dashboard/usage.get', () => {
   });
 
   type Handler = (event: {
-    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number } };
+    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; dashboardUserId: number } };
     _query: Record<string, string>;
     _params: { clientId: string };
   }) => Promise<unknown>;
 
   const makeEvent = (
-    principal: { kind: string; user: ReturnType<typeof mockUser>; clientId: number },
+    principal: { kind: string; user: ReturnType<typeof mockUser>; dashboardUserId: number },
     query: Record<string, string>,
     params: { clientId: string }
   ) =>
@@ -72,7 +72,7 @@ describe('dashboard/usage.get', () => {
   it('returns correctly bucketed data for 24h range', async () => {
     const usageHandler = (await import('./usage.get')).default as Handler;
     const event = makeEvent(
-      { kind: 'user', user: mockUser(1, 2), clientId: 1 },
+      { kind: 'user', user: mockUser(1, 2), dashboardUserId: 1 },
       { range: '24h' },
       { clientId: '1' }
     );
@@ -90,12 +90,12 @@ describe('dashboard/usage.get', () => {
     expect(latestBucket!.txBytes).toBe(50); // 250 - 200
   });
 
-  it('returns 403 for client not bound to session', async () => {
+  it('returns 403 for client not owned by session user', async () => {
     const usageHandler = (await import('./usage.get')).default as Handler;
     const event = makeEvent(
-      { kind: 'user', user: mockUser(2, 2), clientId: 2 },
+      { kind: 'user', user: mockUser(2, 2), dashboardUserId: 2 },
       { range: '24h' },
-      { clientId: '1' }
+      { clientId: '1' } // client 1 is owned by userId 1, not 2
     );
 
     await expect(usageHandler(event)).rejects.toThrow('Forbidden');

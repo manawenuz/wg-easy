@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
 
   const client = await Database.clients.get(clientId);
 
-  if (!client || client.id !== principal.clientId) {
+  if (!client || client.userId !== principal.dashboardUserId) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
