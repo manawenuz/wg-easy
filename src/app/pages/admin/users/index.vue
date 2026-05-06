@@ -62,36 +62,56 @@
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="u in data"
-            :key="u.id"
-            class="border-b dark:border-neutral-600"
-          >
-            <td class="px-4 py-3">{{ u.username }}</td>
-            <td class="px-4 py-3">{{ u.name }}</td>
-            <td class="px-4 py-3">
-              <AdminRoleBadge :role="u.role" />
-            </td>
-            <td class="px-4 py-3">
-              <span
-                :class="
-                  u.enabled
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                "
-              >
-                {{ u.enabled ? t('admin.users.enabled') : t('admin.users.disabled') }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <NuxtLink
-                :to="`/admin/users/${u.id}`"
-                class="text-red-700 hover:underline dark:text-red-400"
-              >
-                {{ t('admin.users.edit') }}
-              </NuxtLink>
-            </td>
-          </tr>
+          <template v-for="u in organizedUsers" :key="u.id">
+            <tr
+              :class="[
+                'border-b dark:border-neutral-600',
+                u.isSubAccount ? 'bg-gray-50 dark:bg-neutral-800' : '',
+              ]"
+            >
+              <td class="px-4 py-3">
+                <div :class="u.isSubAccount ? 'pl-6' : ''">
+                  <span v-if="u.isSubAccount" class="mr-2 text-gray-400">↳</span>
+                  {{ u.username }}
+                </div>
+              </td>
+              <td class="px-4 py-3">{{ u.name }}</td>
+              <td class="px-4 py-3">
+                <AdminRoleBadge :role="u.role" />
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  :class="
+                    u.enabled
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  "
+                >
+                  {{ u.enabled ? t('admin.users.enabled') : t('admin.users.disabled') }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex gap-2">
+                  <NuxtLink
+                    :to="`/admin/users/${u.id}`"
+                    class="text-red-700 hover:underline dark:text-red-400"
+                  >
+                    {{ t('admin.users.edit') }}
+                  </NuxtLink>
+                  <AdminSubAccountDialog
+                    v-if="!u.isSubAccount"
+                    :parent-user-id="u.id"
+                    :parent-name="u.name"
+                    @save="(data) => createSubAccount(u.id, data)"
+                  >
+                    <button class="text-blue-700 hover:underline dark:text-blue-400">
+                      {{ t('admin.users.addSubAccount') }}
+                    </button>
+                  </AdminSubAccountDialog>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -119,6 +139,29 @@ const roleOptions = computed(() => [
   { label: 'End User', value: String(roles.CLIENT) },
 ]);
 
+// Organize users to show hierarchy
+const organizedUsers = computed(() => {
+  if (!data.value) return [];
+
+  const users = [...data.value];
+  const organized: any[] = [];
+
+  // First add all parent users (those without parentUserId)
+  const parents = users.filter((u: any) => !u.parentUserId);
+
+  for (const parent of parents) {
+    organized.push({ ...parent, isSubAccount: false });
+
+    // Then add their sub-accounts
+    const subAccounts = users.filter((u: any) => u.parentUserId === parent.id);
+    for (const sub of subAccounts) {
+      organized.push({ ...sub, isSubAccount: true });
+    }
+  }
+
+  return organized;
+});
+
 async function createUser() {
   await $fetch('/api/admin/users', {
     method: 'post',
@@ -131,5 +174,17 @@ async function createUser() {
   });
   newUser.value = { username: '', password: '', email: '', role: String(roles.ADMIN) };
   await refresh();
+}
+
+async function createSubAccount(parentId: number, data: { name: string; email?: string }) {
+  try {
+    await $fetch(`/api/admin/users/${parentId}/sub-accounts`, {
+      method: 'POST',
+      body: data,
+    });
+    await refresh();
+  } catch (error) {
+    console.error('Failed to create sub-account:', error);
+  }
 }
 </script>

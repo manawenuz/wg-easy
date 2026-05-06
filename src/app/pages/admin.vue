@@ -71,6 +71,7 @@ const menuItems = computed(() => {
   if (isAdmin) {
     items.push({ id: 'routers', name: t('pages.admin.routers') });
     items.push({ id: 'users', name: t('pages.admin.users') });
+    items.push({ id: 'traffic-groups', name: t('pages.admin.trafficGroups') });
   }
   if (isSuperAdmin) {
     items.push({ id: 'audit-log', name: t('pages.admin.auditLog') });

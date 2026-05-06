@@ -186,7 +186,12 @@ export class ClientService {
     return this.#statements.findByPublicKey.execute({ publicKey });
   }
 
-  async create({ name, expiresAt, userId }: ClientCreateType & { userId: number }) {
+  async create({
+    name,
+    expiresAt,
+    userId,
+    trafficGroupId,
+  }: ClientCreateType & { userId: number; trafficGroupId?: number }) {
     const privateKey = await wg.generatePrivateKey();
     const publicKey = await wg.getPublicKey(privateKey);
     const preSharedKey = await wg.generatePreSharedKey();
@@ -234,6 +239,7 @@ export class ClientService {
           preSharedKey,
           ipv4Address,
           ipv6Address,
+          trafficGroupId,
           mtu: clientConfig.defaultMtu,
           jC: clientConfig.defaultJC,
           jMin: clientConfig.defaultJMin,

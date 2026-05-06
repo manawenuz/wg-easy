@@ -346,4 +346,18 @@ export class UserService {
       return result[0];
     });
   }
+
+  async getSubAccounts(parentId: ID) {
+    return this.#db.query.user.findMany({
+      where: eq(user.parentUserId, parentId),
+    });
+  }
+
+  async update(id: ID, data: Partial<Pick<UserType, 'parentUserId' | 'defaultTrafficGroupId'>>) {
+    return this.#db
+      .update(user)
+      .set(data)
+      .where(eq(user.id, id))
+      .execute();
+  }
 }

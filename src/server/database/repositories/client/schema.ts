@@ -1,7 +1,7 @@
 import { sql, relations } from 'drizzle-orm';
 import { int, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-import { oneTimeLink, user, wgInterface } from '../../schema';
+import { oneTimeLink, user, wgInterface, trafficGroup } from '../../schema';
 
 /** null means use value from userConfig */
 
@@ -49,6 +49,9 @@ export const client = sqliteTable('clients_table', {
   dns: text({ mode: 'json' }).$type<string[]>(),
   serverEndpoint: text('server_endpoint'),
   enabled: int({ mode: 'boolean' }).notNull(),
+  trafficGroupId: int('traffic_group_id').references(() => trafficGroup.id, {
+    onDelete: 'set null',
+  }),
   createdAt: text('created_at')
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
@@ -70,5 +73,9 @@ export const clientsRelations = relations(client, ({ one }) => ({
   interface: one(wgInterface, {
     fields: [client.interfaceId],
     references: [wgInterface.name],
+  }),
+  trafficGroup: one(trafficGroup, {
+    fields: [client.trafficGroupId],
+    references: [trafficGroup.id],
   }),
 }));

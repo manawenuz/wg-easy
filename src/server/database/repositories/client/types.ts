@@ -50,6 +50,7 @@ export const ClientCreateSchema = z.object({
   expiresAt: expiresAt,
   userId: z.number().int().positive().optional(),
   newUser: z.object({ name: z.string().min(1) }).optional(),
+  trafficGroupId: z.number().int().positive().optional(),
 });
 
 export type ClientCreateType = z.infer<typeof ClientCreateSchema>;

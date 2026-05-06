@@ -13,6 +13,18 @@
           :label="t('admin.users.name')"
           :data="user.name"
         />
+        <FormInfoField
+          v-if="user.parentUserId"
+          id="parentUser"
+          :label="t('admin.users.parentUser')"
+        >
+          <NuxtLink
+            :to="`/admin/users/${user.parentUserId}`"
+            class="text-red-700 hover:underline dark:text-red-400"
+          >
+            {{ t('admin.users.viewParent') }}
+          </NuxtLink>
+        </FormInfoField>
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('admin.users.role') }}</label>
           <BaseSelect v-model="form.role" :options="roleOptions" />
@@ -33,6 +45,41 @@
           :label="t('admin.users.newPassword')"
           autocomplete="new-password"
         />
+      </FormGroup>
+
+      <FormGroup v-if="user.subAccounts && user.subAccounts.length > 0">
+        <FormHeading>{{ t('admin.users.subAccounts') }}</FormHeading>
+        <div class="space-y-2">
+          <div
+            v-for="sub in user.subAccounts"
+            :key="sub.id"
+            class="flex items-center justify-between rounded border border-gray-200 p-3 dark:border-neutral-600"
+          >
+            <div>
+              <div class="font-medium">{{ sub.name }}</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">{{ sub.username }}</div>
+            </div>
+            <NuxtLink
+              :to="`/admin/users/${sub.id}`"
+              class="text-red-700 hover:underline dark:text-red-400"
+            >
+              {{ t('admin.users.edit') }}
+            </NuxtLink>
+          </div>
+        </div>
+      </FormGroup>
+
+      <FormGroup v-if="!user.parentUserId">
+        <FormHeading>{{ t('admin.users.addSubAccount') }}</FormHeading>
+        <AdminSubAccountDialog
+          :parent-user-id="user.id"
+          :parent-name="user.name"
+          @save="createSubAccount"
+        >
+          <BasePrimaryButton>
+            {{ t('admin.users.addSubAccount') }}
+          </BasePrimaryButton>
+        </AdminSubAccountDialog>
       </FormGroup>
 
       <FormGroup>
@@ -163,5 +210,17 @@ async function deleteUser() {
   if (!confirm(t('admin.users.deleteConfirm'))) return;
   await $fetch(`/api/admin/users/${id}`, { method: 'delete' });
   router.push('/admin/users');
+}
+
+async function createSubAccount(data: { name: string; email?: string }) {
+  try {
+    await $fetch(`/api/admin/users/${id}/sub-accounts`, {
+      method: 'POST',
+      body: data,
+    });
+    await refreshUser();
+  } catch (error) {
+    console.error('Failed to create sub-account:', error);
+  }
 }
 </script>

@@ -17,6 +17,12 @@ export type LocalClient = WGClientReturn & {
     period: string;
     periodEnd: Date;
   };
+  trafficGroup?: {
+    id: number;
+    name: string;
+    colorLight: string;
+    colorDark: string;
+  };
 } & Omit<ClientPersist, 'transferRxPrevious' | 'transferTxPrevious'>;
 
 export type ClientPersist = {

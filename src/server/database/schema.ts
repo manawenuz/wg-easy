@@ -9,6 +9,7 @@ export * from './repositories/user/schema';
 export * from './repositories/userConfig/schema';
 export * from './repositories/quota/schema';
 export * from './repositories/speedLimit/schema';
+export * from './repositories/trafficGroup/schema';
 export * from './repositories/usageSample/schema';
 export * from './repositories/auditLog/schema';
 export * from './repositories/adminRouterAcl/schema';

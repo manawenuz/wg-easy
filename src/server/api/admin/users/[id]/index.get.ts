@@ -17,6 +17,9 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Get sub-accounts
+  const subAccounts = await Database.users.getSubAccounts(id);
+
   return {
     id: user.id,
     username: user.username,
@@ -25,6 +28,14 @@ export default defineEventHandler(async (event) => {
     role: user.role,
     enabled: user.enabled,
     totpVerified: user.totpVerified,
+    parentUserId: user.parentUserId,
+    defaultTrafficGroupId: user.defaultTrafficGroupId,
+    subAccounts: subAccounts.map((sub) => ({
+      id: sub.id,
+      username: sub.username,
+      name: sub.name,
+      email: sub.email,
+    })),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

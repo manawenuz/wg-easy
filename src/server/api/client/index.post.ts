@@ -7,7 +7,7 @@ export default definePermissionEventHandler(
   'clients',
   'create',
   async ({ event }) => {
-    const { name, expiresAt, userId, newUser } = await readValidatedBody(
+    const { name, expiresAt, userId, newUser, trafficGroupId } = await readValidatedBody(
       event,
       validateZod(ClientCreateSchema, event)
     );
@@ -41,9 +41,40 @@ export default definePermissionEventHandler(
           statusMessage: 'Clients can only be owned by CLIENT-role users',
         });
       }
+
+      // Validate that the user is not a sub-account
+      if (targetUser.parentUserId) {
+        throw createError({
+          statusCode: 403,
+          statusMessage: 'Sub-accounts cannot create clients. Please use the parent account.',
+        });
+      }
     }
 
-    const result = await Database.clients.create({ name, expiresAt, userId: resolvedUserId });
+    // Determine traffic group assignment
+    let assignedTrafficGroupId = trafficGroupId;
+
+    if (!assignedTrafficGroupId && resolvedUserId) {
+      const targetUser = await Database.users.get(resolvedUserId);
+      if (targetUser?.defaultTrafficGroupId) {
+        assignedTrafficGroupId = targetUser.defaultTrafficGroupId;
+      }
+    }
+
+    // If still no group assigned, use system default
+    if (!assignedTrafficGroupId) {
+      const defaultGroup = await Database.trafficGroups.getDefault();
+      if (defaultGroup) {
+        assignedTrafficGroupId = defaultGroup.id;
+      }
+    }
+
+    const result = await Database.clients.create({
+      name,
+      expiresAt,
+      userId: resolvedUserId,
+      trafficGroupId: assignedTrafficGroupId,
+    });
     const clientId = result[0]!.clientId;
 
     const iface = await Database.interfaces.get();

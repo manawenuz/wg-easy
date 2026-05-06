@@ -26,6 +26,7 @@ import { RoutePolicyService } from './repositories/routePolicy/service';
 import { ApiTokenService } from './repositories/apiToken/service';
 import { WgObfuscatorConfigService } from './repositories/wgObfuscatorConfig/service';
 import { PendingMutationService } from './repositories/pendingMutation/service';
+import { TrafficGroupService } from './repositories/trafficGroup/service';
 
 const DB_DEBUG = debug('Database');
 
@@ -72,6 +73,7 @@ class DBService {
   apiTokens: ApiTokenService;
   wgObfuscatorConfigs: WgObfuscatorConfigService;
   pendingMutations: PendingMutationService;
+  trafficGroups: TrafficGroupService;
 
   constructor(db: DBType) {
     this.clients = new ClientService(db);
@@ -92,6 +94,7 @@ class DBService {
     this.apiTokens = new ApiTokenService(db);
     this.wgObfuscatorConfigs = new WgObfuscatorConfigService(db);
     this.pendingMutations = new PendingMutationService(db);
+    this.trafficGroups = new TrafficGroupService(db);
   }
 }
 

@@ -35,10 +35,15 @@ export default definePermissionEventHandler(
 
     const usage = await engine.sampleUsage(iface);
     const quotas = await Database.quotas.getAll();
+    const trafficGroups = await Database.trafficGroups.getAll();
 
     const clients = dbClients.map((client) => {
       const sample = usage.find((s) => s.publicKey === client.publicKey);
       const quota = quotas.find((q) => q.clientId === client.id);
+      const trafficGroup = client.trafficGroupId
+        ? trafficGroups.find((g) => g.id === client.trafficGroupId)
+        : undefined;
+
       return {
         ...client,
         latestHandshakeAt: sample?.lastHandshakeAt ?? null,
@@ -51,6 +56,14 @@ export default definePermissionEventHandler(
               usedBytes: quota.usedBytes,
               period: quota.period,
               periodEnd: quota.periodEnd,
+            }
+          : undefined,
+        trafficGroup: trafficGroup
+          ? {
+              id: trafficGroup.id,
+              name: trafficGroup.name,
+              colorLight: trafficGroup.colorLight,
+              colorDark: trafficGroup.colorDark,
             }
           : undefined,
       };
