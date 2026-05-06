@@ -74,6 +74,22 @@ docker compose -f docker-compose.build.yml down
 docker compose up -d   # uses ghcr image
 ```
 
+## Deploy with AmneziaWG
+
+For a deployment focused on AmneziaWG with obfuscation enabled out of the box, use the dedicated AmneziaWG compose file:
+
+```bash
+docker compose -f docker-compose.amnezia.yml up -d
+```
+
+This variant:
+- Uses the ghcr.io published image (same as `docker-compose.yml`)
+- Includes the wg-obfuscator sidecar pre-configured for host-side obfuscation
+- Mounts `/var/run/docker.sock` for automatic obfuscator reload
+- Exposes `/dev/net/tun` for AmneziaWG userspace fallback
+
+After starting, switch the interface engine to AmneziaWG in the admin UI (see [Switch engine to AmneziaWG](#switch-engine-to-amneziawg)) and enable obfuscation (see [Enable obfuscation (host-side)](#enable-obfuscation-host-side)).
+
 ## What's in the box
 
 The default compose ships **two** services:

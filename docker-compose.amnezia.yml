@@ -1,3 +1,14 @@
+# AmneziaWG-focused compose. Use this when you want obfuscated WireGuard
+# with host-side wg-obfuscator forwarding to upstream routers.
+#
+# Usage:
+#   docker compose -f docker-compose.amnezia.yml up -d
+#
+# AmneziaWG adds obfuscation to WireGuard traffic. This setup includes:
+# - wg-easy with AmneziaWG support (userspace fallback via /dev/net/tun)
+# - wg-obfuscator sidecar for host-side obfuscation forwarding
+# - Shared config volume for coordination between services
+
 volumes:
   etc_wireguard:
   obfuscator_config:
@@ -13,43 +24,38 @@ services:
       # Host-side wg-obfuscator: where wg-easy writes per-interface conf
       # files. The wg-obfuscator service below mounts the same volume.
       - HOST_OBFUSCATOR_CONFIG_DIR=/etc/wireguard/obfuscator
-      # Best-effort reload after writing a config. Requires Docker socket
-      # access (mount /var/run/docker.sock) if you want this to work.
-      # Without it, restart the wg-obfuscator container by hand on changes.
-      # - HOST_OBFUSCATOR_RELOAD_CMD=docker kill -s HUP wg-obfuscator
+      # Reload wg-obfuscator after config changes (requires Docker socket)
+      - HOST_OBFUSCATOR_RELOAD_CMD=docker kill -s HUP wg-obfuscator
       # Optional: pre-seed a default MikroTik router on first boot.
-      # Idempotent — only seeds if no router with MIKROTIK_DEFAULT_NAME exists.
-      # - MIKROTIK_DEFAULT_HOST=172.16.81.127
+      # Uncomment and configure if using MikroTik upstream:
+      # - MIKROTIK_DEFAULT_HOST=192.168.88.1
       # - MIKROTIK_DEFAULT_NAME=mikrotik-default
-      # - MIKROTIK_DEFAULT_TRANSPORT=ssh           # ssh | routeros-api
+      # - MIKROTIK_DEFAULT_TRANSPORT=ssh
       # - MIKROTIK_DEFAULT_SSH_USER=wg-easy
       # - MIKROTIK_DEFAULT_SSH_KEY_FILE=/run/secrets/mikrotik_ssh_key
       # - MIKROTIK_DEFAULT_API_USER=wg-easy
       # - MIKROTIK_DEFAULT_API_PASSWORD=changeme
       # - MIKROTIK_DEFAULT_TLS_REQUIRED=true
-      # - MIKROTIK_DEFAULT_TLS_FINGERPRINT_SHA256=
     volumes:
       - etc_wireguard:/etc/wireguard
       - obfuscator_config:/etc/wireguard/obfuscator
       - /lib/modules:/lib/modules:ro
-      # Uncomment if HOST_OBFUSCATOR_RELOAD_CMD uses docker:
-      # - /var/run/docker.sock:/var/run/docker.sock
-      # Mount the SSH key referenced by MIKROTIK_DEFAULT_SSH_KEY_FILE:
+      # Required for HOST_OBFUSCATOR_RELOAD_CMD to work:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount SSH key if using MIKROTIK_DEFAULT_SSH_KEY_FILE:
       # - ./secrets/mikrotik_ssh_key:/run/secrets/mikrotik_ssh_key:ro
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    # AmneziaWG (and any wg-quick userspace fallback) needs /dev/net/tun
-    # exposed to create the TUN interface when the kernel module isn't
-    # loaded on the host. Harmless if you don't use AWG.
+    # AmneziaWG userspace fallback needs /dev/net/tun to create TUN interface
+    # when kernel module isn't loaded. Required for AWG obfuscation.
     devices:
       - /dev/net/tun:/dev/net/tun
 
   # Host-side wg-obfuscator sidecar. wg-easy writes per-interface configs
   # into the shared volume; this container picks them up and forwards
-  # plain WireGuard to the upstream MikroTik(s). Disable by removing this
-  # service if you only ever use router-side obfuscation.
+  # obfuscated traffic to upstream MikroTik(s) or other WireGuard endpoints.
   wg-obfuscator:
     image: clustermeerkat/wg-obfuscator:latest
     container_name: wg-obfuscator
@@ -57,7 +63,7 @@ services:
     volumes:
       - obfuscator_config:/etc/wg-obfuscator:ro
     # Image entrypoint is already `wg-obfuscator`, so command supplies args
-    # only. For multi-interface obfuscation see PRD-30-05.
+    # only. For multi-interface obfuscation, add multiple --config flags.
     command: ["--config", "/etc/wg-obfuscator/wg0.conf"]
     restart: unless-stopped
     depends_on:

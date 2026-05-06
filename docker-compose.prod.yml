@@ -1,8 +1,6 @@
 services:
   wg-easy:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
+    image: ghcr.io/manawenuz/wg-easy-fork:edge
     container_name: wg-easy
     environment:
       - INIT_ENABLED=true
