@@ -23,6 +23,7 @@ services:
       - INIT_PORT=51820
       - INIT_USERNAME=testtest
       - INIT_PASSWORD=Qweasdyxcv!2
+      - DEBUG=Database
 
 # folders should be generated inside container
 volumes:

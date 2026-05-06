@@ -353,10 +353,18 @@ export class UserService {
     });
   }
 
-  async update(id: ID, data: Partial<Pick<UserType, 'parentUserId' | 'defaultTrafficGroupId'>>) {
+  async updateParentUserId(id: ID, parentUserId: ID | null) {
     return this.#db
       .update(user)
-      .set(data)
+      .set({ parentUserId })
+      .where(eq(user.id, id))
+      .execute();
+  }
+
+  async updateDefaultTrafficGroupId(id: ID, defaultTrafficGroupId: ID | null) {
+    return this.#db
+      .update(user)
+      .set({ defaultTrafficGroupId })
       .where(eq(user.id, id))
       .execute();
   }

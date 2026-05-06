@@ -35,9 +35,7 @@ export default defineEventHandler(async (event) => {
   const created = await Database.users.createEndUser(name.trim(), email);
 
   // Update the created user to set parent_user_id
-  await Database.users.update(created.id, {
-    parentUserId: Number(id),
-  });
+  await Database.users.updateParentUserId(created.id, Number(id));
 
   return {
     id: created.id,
