@@ -1,6 +1,6 @@
 import { TrafficGroupUpdateSchema } from '#db/repositories/trafficGroup/types';
 
-export default definePermissionEventHandler('admin', 'settings', async ({ event }) => {
+export default definePermissionEventHandler('admin', 'any', async ({ event }) => {
   const id = getRouterParam(event, 'id');
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: 'Missing id parameter' });

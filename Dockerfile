@@ -1,3 +1,12 @@
+FROM docker.io/library/node:krypton-alpine AS build-awg
+RUN apk add --no-cache linux-headers build-base go git
+RUN git clone https://github.com/amnezia-vpn/amneziawg-tools.git && \
+    git clone https://github.com/amnezia-vpn/amneziawg-go && \
+    cd amneziawg-go && \
+    make && \
+    cd ../amneziawg-tools/src && \
+    make
+
 FROM docker.io/library/node:krypton-alpine AS build
 WORKDIR /app
 
@@ -13,15 +22,6 @@ RUN pnpm install
 # Build UI
 COPY src ./
 RUN pnpm build
-
-# Build amneziawg-tools
-RUN apk add linux-headers build-base go git && \
-    git clone https://github.com/amnezia-vpn/amneziawg-tools.git && \
-    git clone https://github.com/amnezia-vpn/amneziawg-go && \
-    cd amneziawg-go && \
-    make && \
-    cd ../amneziawg-tools/src && \
-    make
 
 FROM docker.io/library/rust:alpine AS build-boringtun
 WORKDIR /app
@@ -52,11 +52,11 @@ COPY --from=build-libsql /app/node_modules /app/server/node_modules
 COPY --from=build /app/cli/cli.sh /usr/local/bin/cli
 RUN chmod +x /usr/local/bin/cli
 # Copy amneziawg-go
-COPY --from=build /app/amneziawg-go/amneziawg-go /usr/bin/amneziawg-go
+COPY --from=build-awg /amneziawg-go/amneziawg-go /usr/bin/amneziawg-go
 RUN chmod +x /usr/bin/amneziawg-go
 # Copy amneziawg-tools
-COPY --from=build /app/amneziawg-tools/src/wg /usr/bin/awg
-COPY --from=build /app/amneziawg-tools/src/wg-quick/linux.bash /usr/bin/awg-quick
+COPY --from=build-awg /amneziawg-tools/src/wg /usr/bin/awg
+COPY --from=build-awg /amneziawg-tools/src/wg-quick/linux.bash /usr/bin/awg-quick
 RUN chmod +x /usr/bin/awg /usr/bin/awg-quick
 # Copy boringtun
 COPY --from=build-boringtun /app/boringtun/target/release/boringtun-cli /usr/bin/boringtun-cli

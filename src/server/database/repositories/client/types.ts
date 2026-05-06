@@ -87,6 +87,7 @@ export const ClientUpdateSchema = schemaForType<UpdateClientType>()(
     persistentKeepalive: PersistentKeepaliveSchema,
     serverEndpoint: AddressSchema.nullable(),
     dns: DnsSchema.nullable(),
+    trafficGroupId: z.number().int().positive().nullable(),
   })
 );
 

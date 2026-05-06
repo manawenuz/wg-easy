@@ -102,17 +102,20 @@ export type DBType = typeof db;
 export type DBServiceType = DBService;
 
 async function migrate() {
+  DB_DEBUG('Migrating database...');
   try {
-    DB_DEBUG('Migrating database...');
     await drizzleMigrate(db, {
       migrationsFolder: './server/database/migrations',
     });
-    DB_DEBUG('Migration complete');
   } catch (e) {
-    if (e instanceof Error) {
-      DB_DEBUG('Failed to migrate database:', e.message);
-    }
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[db] Migration failed: ${msg}`);
+    console.error(
+      '[db] Refusing to start with an inconsistent schema. Restore the DB from a backup or fix the migration before retrying.'
+    );
+    throw e;
   }
+  DB_DEBUG('Migration complete');
 }
 
 async function initialSetup(db: DBServiceType) {

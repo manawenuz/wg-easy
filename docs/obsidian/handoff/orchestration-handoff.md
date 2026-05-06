@@ -1,8 +1,18 @@
 ---
 title: Orchestration handoff — resume here
 type: handoff
-last_updated: 2026-05-05
+last_updated: 2026-05-06
 ---
+
+> **2026-05-06 update — Migration foot-gun fixed + traffic-groups/sub-accounts UI completion PRDs.** Live re-deploy to `178.105.64.108` from a wiped state (`sha-4a72c63` → fresh build) crashed with `no such column: default_traffic_group_id`. Two real bugs found and fixed directly (orchestrator override, not via Kimi, because the fixes were tiny and time-critical):
+> 1. `src/server/database/sqlite.ts` — `migrate()` was swallowing every error via `DB_DEBUG`; now it throws and logs to `console.error`.
+> 2. `src/server/database/migrations/meta/_journal.json` — commit `28cfb08` (traffic groups + sub-accounts) added migration `0015_traffic_groups_and_subaccounts.sql` but **forgot to register it in the journal**, so Drizzle silently skipped it on every fresh deploy. Added the missing `idx: 15` entry.
+>
+> Once the live UI was reachable, the user reported (a) traffic-groups admin page renders raw `admin.trafficGroups.*` paths, (b) "no way to add a sub-account near an account" — even though the backend, the dialog component, and the row trigger all exist. Both are i18n + tiny affordance gaps in `en.json` and `users/index.vue`. PRDs:
+> - `60-bugfixes/11-traffic-groups-i18n` — add the 26-key `admin.trafficGroups` namespace to `en.json` (cosmetic but makes the page usable)
+> - `60-bugfixes/12-subaccount-ui-affordance` — 5 missing `admin.users.*` keys + replace the existing text trigger with a `+` icon-button on each parent user row
+>
+> Both are en-only, scoped to ≤3 files each, no backend changes. Hand off via `bash scripts/assemble-kimi-prompt.sh 60 11` and `60 12`. Run them in any order. **Drizzle migration policy** (lesson learned): never hand-add a `.sql` file to `src/server/database/migrations/` without running `pnpm exec drizzle-kit generate` (or hand-updating `_journal.json` and manually computing the entry). Add a CI check that `count(*.sql) == len(_journal.entries) + 1` (the +1 is for `meta/`).
 
 > **2026-05-05 update — MikroTik live verification + new PRD batch.** Engine→router path was end-to-end verified against `tgCHR` (ROS 7.22.1) over Tailscale (`tgmanwehs` host): integration test passes, real `manseTest` client synced from live DB to router, full UI/API create+delete cycle works. Live audit surfaced gaps that became four new bugfix PRDs and one P1 security PRD:
 > - `60-bugfixes/06-engine-reconcile-loop` — periodic full-sync + mutation retry queue (data integrity, **high**)

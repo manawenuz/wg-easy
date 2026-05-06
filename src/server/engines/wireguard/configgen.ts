@@ -124,9 +124,18 @@ PostDown = ${iptablesTemplate(hooks.postDown, wgInterface)}`;
       client.postDown ? `PostDown = ${removeNewlines(client.postDown)}` : null,
     ];
 
+    // When embedded DNS is enabled, dnsmasq listens on the server's wg0 IPs
+    // (the +1 host of the v4/v6 CIDRs). Hard-coding these caused a config
+    // bug where v6 CIDRs other than fdcc:ad94:bacf:61a4::/112 (e.g. the
+    // standard ::cafe:1 host the interface picks) sent clients to a v6 IP
+    // that wasn't actually listening — DNS would silently fail on dual-stack.
+    const ifaceCidr4 = parseCidr(wgInterface.ipv4Cidr);
+    const ifaceCidr6 = parseCidr(wgInterface.ipv6Cidr);
+    const ifaceIpv4 = stringifyIp({ number: ifaceCidr4.start + 1n, version: 4 });
+    const ifaceIpv6 = stringifyIp({ number: ifaceCidr6.start + 1n, version: 6 });
     const allDnsServers = client.dns
       ?? (userConfig.embeddedDnsEnabled
-        ? ['10.8.0.1', ...(enableIpv6 ? ['fdcc:ad94:bacf:61a4::1'] : [])]
+        ? [ifaceIpv4, ...(enableIpv6 ? [ifaceIpv6] : [])]
         : userConfig.defaultDns);
     // Filter out IPv6 DNS when IPv6 is disabled to avoid resolution issues
     const dnsServers = enableIpv6

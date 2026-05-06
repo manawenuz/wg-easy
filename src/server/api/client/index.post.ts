@@ -58,6 +58,15 @@ export default definePermissionEventHandler(
       const targetUser = await Database.users.get(resolvedUserId);
       if (targetUser?.defaultTrafficGroupId) {
         assignedTrafficGroupId = targetUser.defaultTrafficGroupId;
+      } else {
+        // Inherit from an existing peer of the same user so all VPN
+        // connections under one account share the same plan badge by
+        // default. The user can still override via the form/edit page.
+        const existing = await Database.clients.getForUser(resolvedUserId);
+        const existingWithGroup = existing.find((c) => c.trafficGroupId);
+        if (existingWithGroup?.trafficGroupId) {
+          assignedTrafficGroupId = existingWithGroup.trafficGroupId;
+        }
       }
     }
 

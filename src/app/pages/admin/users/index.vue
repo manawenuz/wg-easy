@@ -99,13 +99,19 @@
                     {{ t('admin.users.edit') }}
                   </NuxtLink>
                   <AdminSubAccountDialog
-                    v-if="!u.isSubAccount"
+                    v-if="!u.isSubAccount && u.role === roles.CLIENT"
                     :parent-user-id="u.id"
-                    :parent-name="u.name"
+                    :parent-name="u.name || u.username"
                     @save="(data) => createSubAccount(u.id, data)"
                   >
-                    <button class="text-blue-700 hover:underline dark:text-blue-400">
-                      {{ t('admin.users.addSubAccount') }}
+                    <button
+                      :title="t('admin.users.addSubAccount')"
+                      :aria-label="t('admin.users.addSubAccount')"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-neutral-700"
+                    >
+                      <svg class="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
                     </button>
                   </AdminSubAccountDialog>
                 </div>
@@ -122,6 +128,7 @@
 import { roles } from '#shared/utils/permissions';
 
 const { t } = useI18n();
+const toast = useToast();
 
 const { data, refresh } = await useFetch('/api/admin/users', { method: 'get' });
 
@@ -176,15 +183,17 @@ async function createUser() {
   await refresh();
 }
 
-async function createSubAccount(parentId: number, data: { name: string; email?: string }) {
+async function createSubAccount(_parentId: number, data: { name: string; userId: number }) {
   try {
-    await $fetch(`/api/admin/users/${parentId}/sub-accounts`, {
+    await $fetch('/api/client', {
       method: 'POST',
-      body: data,
+      body: { name: data.name, userId: data.userId, expiresAt: null },
     });
+    toast.showToast({ type: 'success', message: t('client.created') });
     await refresh();
-  } catch (error) {
-    console.error('Failed to create sub-account:', error);
+  } catch (error: any) {
+    const msg = error?.data?.message || error?.statusMessage || error?.message || 'Unknown error';
+    toast.showToast({ type: 'error', message: msg });
   }
 }
 </script>

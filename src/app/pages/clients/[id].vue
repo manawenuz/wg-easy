@@ -30,6 +30,19 @@
             />
           </FormGroup>
           <FormGroup>
+            <FormHeading>{{ $t('client.trafficGroup') }}</FormHeading>
+            <div class="col-span-full">
+              <select
+                v-model="data.trafficGroupId"
+                class="w-full rounded border border-gray-300 px-3 py-2 dark:border-neutral-600 dark:bg-neutral-800"
+              >
+                <option v-for="group in trafficGroups" :key="group.id" :value="group.id">
+                  {{ group.name }}<span v-if="group.isDefault"> ({{ $t('admin.trafficGroups.default') }})</span>
+                </option>
+              </select>
+            </div>
+          </FormGroup>
+          <FormGroup>
             <FormHeading>{{ $t('client.address') }}</FormHeading>
             <FormTextField
               id="ipv4Address"
@@ -265,6 +278,11 @@ const { data: _data, refresh } = await useFetch(`/api/client/${id}`, {
   method: 'get',
 });
 const data = toRef(_data.value);
+
+const trafficGroups = ref<Array<{ id: number; name: string; isDefault: boolean }>>([]);
+$fetch('/api/admin/traffic-groups')
+  .then((r: any) => { trafficGroups.value = r; })
+  .catch(() => { /* not an admin — selector stays empty */ });
 
 const range = ref<'24h' | '7d' | '30d'>('24h');
 const ranges: Array<'24h' | '7d' | '30d'> = ['24h', '7d', '30d'];

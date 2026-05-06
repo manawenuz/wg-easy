@@ -1,6 +1,6 @@
 import { TrafficGroupCreateSchema } from '#db/repositories/trafficGroup/types';
 
-export default definePermissionEventHandler('admin', 'settings', async ({ event }) => {
+export default definePermissionEventHandler('admin', 'any', async ({ event }) => {
   const body = await readValidatedBody(event, validateZod(TrafficGroupCreateSchema, event));
 
   try {

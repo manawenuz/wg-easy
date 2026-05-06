@@ -5,22 +5,17 @@
       {{ $t('admin.users.addSubAccount') }}
     </template>
     <template #description>
-      <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        {{ $t('admin.users.subAccountDescription') }}
+      <div class="flex flex-col gap-3">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          {{ $t('admin.users.subAccountDescription') }}
+          <span class="font-medium text-gray-800 dark:text-gray-200">{{ parentName }}</span>
+        </p>
+        <FormTextField
+          id="clientName"
+          v-model="clientName"
+          :label="$t('client.name')"
+        />
       </div>
-      <FormGroup>
-        <FormTextField
-          id="name"
-          v-model="formData.name"
-          :label="$t('admin.users.name')"
-        />
-        <FormTextField
-          id="email"
-          v-model="formData.email"
-          type="email"
-          :label="$t('admin.users.email')"
-        />
-      </FormGroup>
     </template>
     <template #actions>
       <DialogClose as-child>
@@ -42,18 +37,16 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  save: [data: { name: string; email?: string }];
+  save: [data: { name: string; userId: number }];
 }>();
 
-const formData = reactive({
-  name: '',
-  email: '',
-});
+const clientName = ref('');
 
 function handleSave() {
   emit('save', {
-    name: formData.name,
-    email: formData.email || undefined,
+    name: clientName.value,
+    userId: props.parentUserId,
   });
+  clientName.value = '';
 }
 </script>
