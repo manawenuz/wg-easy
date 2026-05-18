@@ -1,0 +1,42 @@
+# Historical gitleaks suppressions for fork-authored commits.
+#
+# Each entry is a `commit:file:rule:line` fingerprint. Adding a fingerprint
+# here tells gitleaks not to re-flag the same leak — it does NOT remove the
+# secret from git history. If any of these keys ever protected production
+# traffic, ROTATE them.
+#
+# --- Old WIP commits that accidentally committed runtime WireGuard configs ---
+# These files have been untracked since commit 51a39 ("build: untrack
+# runtime artifacts"). They're harmless going forward, but the keys are
+# permanently in git history and must be considered burned. Rotate any
+# server private key or pre-shared key whose value matches one of these.
+
+f266f168daa85cc0986af840a374f2f44dac57c6:.wg-easy/wg0.conf:generic-api-key:7
+f266f168daa85cc0986af840a374f2f44dac57c6:.wg-easy/wg0.json:generic-api-key:3
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.conf:generic-api-key:7
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.conf:generic-api-key:14
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.conf:generic-api-key:20
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.json:generic-api-key:3
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.json:generic-api-key:14
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.json:generic-api-key:16
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.json:generic-api-key:23
+0f220c1a782bda680ed5916653941dafe0620028:config_/wg0.json:generic-api-key:25
+9d355f67d8ccebff5e2b4107635d93fd57d91559:config/wg0.conf:generic-api-key:20
+9d355f67d8ccebff5e2b4107635d93fd57d91559:config/wg0.json:generic-api-key:23
+9d355f67d8ccebff5e2b4107635d93fd57d91559:config/wg0.json:generic-api-key:25
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0 copy.conf:generic-api-key:2
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0 copy.conf:generic-api-key:10
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0.conf:generic-api-key:7
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0.json:generic-api-key:3
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0.json:generic-api-key:14
+d7bb645470ffee1c5a2e43b8f534b96974fe382e:config/wg0.json:generic-api-key:16
+eaf3d5c3fb7f89fd999c4c2260a8eb8add3619fc:config/wg0.conf:generic-api-key:2
+eaf3d5c3fb7f89fd999c4c2260a8eb8add3619fc:config/wg0.conf:generic-api-key:10
+
+# --- Test fixtures in PRD-10-04 MikroTik integration test ---
+# Dummy WireGuard keys hardcoded into a test that drives a live MikroTik
+# router. The "keys" here are throwaway — no production traffic ever flowed
+# through them. Safe to suppress.
+
+b833154ed8cb15520f807bdb5b72ba40b34279d1:src/test/mikrotik_sync_mansetest.ts:generic-api-key:88
+b833154ed8cb15520f807bdb5b72ba40b34279d1:src/test/mikrotik_sync_mansetest.ts:generic-api-key:89
