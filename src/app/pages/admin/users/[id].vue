@@ -82,6 +82,24 @@
         </AdminSubAccountDialog>
       </FormGroup>
 
+      <FormGroup v-if="!user.parentUserId">
+        <ClientsQuotaForm :user-id="user.id" />
+      </FormGroup>
+      <FormGroup v-else>
+        <FormHeading>{{ t('admin.users.quota.title') }}</FormHeading>
+        <div class="col-span-full text-sm text-gray-500 dark:text-neutral-400">
+          {{ t('admin.users.quota.inheritedFrom', { name: t('admin.users.parentUser') }) }}
+        </div>
+        <NuxtLink
+          :to="`/admin/users/${user.parentUserId}`"
+          class="text-sm text-red-700 hover:underline dark:text-red-400"
+        >
+          {{ t('admin.users.quota.openParent') }}
+        </NuxtLink>
+      </FormGroup>
+
+      <ClientsQuotaBreakdown :user-id="user.id" />
+
       <FormGroup>
         <FormHeading>{{ t('admin.users.acl') }}</FormHeading>
         <div class="space-y-2">

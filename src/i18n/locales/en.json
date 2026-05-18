@@ -150,7 +150,13 @@
     "usage": "Usage",
     "details": "Details",
     "aggregateBandwidth": "Aggregate Bandwidth",
-    "trafficGroup": "Traffic Group"
+    "trafficGroup": "Traffic Group",
+    "quota": {
+      "title": "Quota",
+      "viewOnly": "Quota is set on the user account",
+      "editOnUser": "Edit on user",
+      "sharedAcross": "Shared across {count} accounts"
+    }
   },
   "dialog": {
     "change": "Change",
@@ -247,7 +253,24 @@
       "parentUser": "Parent user",
       "subAccountDescription": "New VPN connection for user:",
       "subAccounts": "VPN connections",
-      "viewParent": "View parent"
+      "viewParent": "View parent",
+    "quota": {
+      "title": "Quota",
+      "limit": "Limit",
+      "period": "Period",
+      "autoDisable": "Auto-disable on exceed",
+      "usedOf": "{used} / {limit}",
+      "overLimit": "Over Limit",
+      "resetsAt": "Resets at",
+      "inheritedFrom": "Quota inherited from {name}",
+      "openParent": "Open parent account",
+      "breakdown": {
+        "title": "Family usage breakdown",
+        "member": "Member",
+        "contributed": "Used this period",
+        "clients": "Connections"
+      }
+    }
     },
     "routers": {
       "title": "Routers",

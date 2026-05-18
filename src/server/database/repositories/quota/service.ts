@@ -1,9 +1,9 @@
 import { eq, sql, and, lte, gte } from 'drizzle-orm';
-import { quota } from './schema';
+import { userQuota } from './schema';
+import type { UserQuotaType } from './types';
 import type { DBType } from '#db/sqlite';
-import type { QuotaType } from './types';
 
-export class QuotaService {
+export class UserQuotaService {
   #db: DBType;
 
   constructor(db: DBType) {
@@ -11,83 +11,83 @@ export class QuotaService {
   }
 
   async getAll() {
-    return this.#db.query.quota.findMany();
+    return this.#db.query.userQuota.findMany();
   }
 
-  async getByClientId(clientId: ID) {
-    return this.#db.query.quota.findFirst({
-      where: eq(quota.clientId, clientId),
+  async getByUserId(userId: ID) {
+    return this.#db.query.userQuota.findFirst({
+      where: eq(userQuota.userId, userId),
     });
   }
 
   async create(data: {
-    clientId: ID;
+    userId: ID;
     limitBytes: number;
     period: 'daily' | 'weekly' | 'monthly';
     periodStart: Date;
     periodEnd: Date;
     autoDisable?: boolean;
   }) {
-    return this.#db.insert(quota).values({
+    return this.#db.insert(userQuota).values({
       ...data,
       autoDisable: data.autoDisable ?? true,
       usedBytes: 0,
     });
   }
 
-  async update(clientId: ID, data: Partial<Omit<QuotaType, 'clientId'>>) {
+  async update(userId: ID, data: Partial<Omit<UserQuotaType, 'userId'>>) {
     return this.#db
-      .update(quota)
+      .update(userQuota)
       .set(data)
-      .where(eq(quota.clientId, clientId))
+      .where(eq(userQuota.userId, userId))
       .execute();
   }
 
-  async delete(clientId: ID) {
-    return this.#db.delete(quota).where(eq(quota.clientId, clientId)).execute();
+  async delete(userId: ID) {
+    return this.#db.delete(userQuota).where(eq(userQuota.userId, userId)).execute();
   }
 
-  async addUsage(clientId: ID, bytes: number) {
+  async addUsage(userId: ID, bytes: number) {
     return this.#db
-      .update(quota)
-      .set({ usedBytes: sql`${quota.usedBytes} + ${bytes}` })
-      .where(eq(quota.clientId, clientId))
+      .update(userQuota)
+      .set({ usedBytes: sql`${userQuota.usedBytes} + ${bytes}` })
+      .where(eq(userQuota.userId, userId))
       .execute();
   }
 
   async findOverLimit() {
     const now = new Date();
-    return this.#db.query.quota.findMany({
+    return this.#db.query.userQuota.findMany({
       where: and(
-        sql`${quota.usedBytes} >= ${quota.limitBytes}`,
-        eq(quota.autoDisable, true),
-        sql`${quota.disabledByQuotaAt} IS NULL`,
-        lte(quota.periodStart, now),
-        gte(quota.periodEnd, now)
+        sql`${userQuota.usedBytes} >= ${userQuota.limitBytes}`,
+        eq(userQuota.autoDisable, true),
+        sql`${userQuota.disabledByQuotaAt} IS NULL`,
+        lte(userQuota.periodStart, now),
+        gte(userQuota.periodEnd, now)
       ),
     });
   }
 
   async findExpiredPeriods() {
     const now = new Date();
-    return this.#db.query.quota.findMany({
-      where: lte(quota.periodEnd, now),
+    return this.#db.query.userQuota.findMany({
+      where: lte(userQuota.periodEnd, now),
     });
   }
 
-  async markDisabledByQuota(clientId: ID) {
+  async markDisabledByQuota(userId: ID) {
     return this.#db
-      .update(quota)
+      .update(userQuota)
       .set({ disabledByQuotaAt: new Date() })
-      .where(eq(quota.clientId, clientId))
+      .where(eq(userQuota.userId, userId))
       .execute();
   }
 
-  async clearDisabledByQuota(clientId: ID) {
+  async clearDisabledByQuota(userId: ID) {
     return this.#db
-      .update(quota)
+      .update(userQuota)
       .set({ disabledByQuotaAt: null })
-      .where(eq(quota.clientId, clientId))
+      .where(eq(userQuota.userId, userId))
       .execute();
   }
 }

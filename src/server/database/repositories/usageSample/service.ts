@@ -1,4 +1,4 @@
-import { eq, desc, sql, and, lt } from 'drizzle-orm';
+import { eq, desc, sql, and, lt, inArray, gte, lte } from 'drizzle-orm';
 import { usageSample } from './schema';
 import type { DBType } from '#db/sqlite';
 
@@ -59,5 +59,16 @@ export class UsageSampleService {
       .delete(usageSample)
       .where(lt(usageSample.ts, cutoff))
       .execute();
+  }
+
+  async getForClients(clientIds: ID[], periodStart: Date, periodEnd: Date) {
+    if (clientIds.length === 0) return [];
+    return this.#db.query.usageSample.findMany({
+      where: and(
+        inArray(usageSample.clientId, clientIds),
+        gte(usageSample.ts, periodStart),
+        lte(usageSample.ts, periodEnd)
+      ),
+    });
   }
 }

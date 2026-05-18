@@ -16,7 +16,7 @@ import { InterfaceService } from './repositories/interface/service';
 import { HooksService } from './repositories/hooks/service';
 import { OneTimeLinkService } from './repositories/oneTimeLink/service';
 import { RouterService } from './repositories/router/service';
-import { QuotaService } from './repositories/quota/service';
+import { UserQuotaService } from './repositories/quota/service';
 import { SpeedLimitService } from './repositories/speedLimit/service';
 import { UsageSampleService } from './repositories/usageSample/service';
 import { AuditLogService } from './repositories/auditLog/service';
@@ -63,7 +63,7 @@ class DBService {
   hooks: HooksService;
   oneTimeLinks: OneTimeLinkService;
   routers: RouterService;
-  quotas: QuotaService;
+  quotas: UserQuotaService;
   speedLimits: SpeedLimitService;
   usageSamples: UsageSampleService;
   auditLogs: AuditLogService;
@@ -84,7 +84,7 @@ class DBService {
     this.hooks = new HooksService(db);
     this.oneTimeLinks = new OneTimeLinkService(db);
     this.routers = new RouterService(db);
-    this.quotas = new QuotaService(db);
+    this.quotas = new UserQuotaService(db);
     this.speedLimits = new SpeedLimitService(db);
     this.usageSamples = new UsageSampleService(db);
     this.auditLogs = new AuditLogService(db);

@@ -1,10 +1,12 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { TOTP } from 'otpauth';
 import { user } from './schema';
 import type { UserType } from './types';
 import type { DBType } from '#db/sqlite';
 import type { Role } from '#shared/utils/permissions';
 import { roles } from '#shared/utils/permissions';
+import { userQuota } from '#db/schema';
+import { client } from '#db/schema';
 
 type LoginResult =
   | {
@@ -353,12 +355,71 @@ export class UserService {
     });
   }
 
+  async getRootUserId(userId: ID): Promise<ID> {
+    let current = userId;
+    let depth = 0;
+    const maxDepth = 10;
+
+    while (depth < maxDepth) {
+      const u = await this.get(current);
+      if (!u || u.parentUserId === null) return current;
+      current = u.parentUserId;
+      depth++;
+    }
+
+    throw new Error(
+      `CYCLE_DETECTED: parent chain exceeds ${maxDepth} hops for user ${userId}`
+    );
+  }
+
+  async getFamilyMemberIds(rootUserId: ID): Promise<ID[]> {
+    const members: ID[] = [rootUserId];
+    const queue = [rootUserId];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const children = await this.#db.query.user.findMany({
+        where: eq(user.parentUserId, current),
+        columns: { id: true },
+      });
+      for (const child of children) {
+        if (!members.includes(child.id)) {
+          members.push(child.id);
+          queue.push(child.id);
+        }
+      }
+    }
+
+    return members;
+  }
+
+  async getFamilyClientIds(rootUserId: ID): Promise<ID[]> {
+    const memberIds = await this.getFamilyMemberIds(rootUserId);
+    if (memberIds.length === 0) return [];
+
+    const clients = await this.#db.query.client.findMany({
+      where: inArray(client.userId, memberIds),
+      columns: { id: true },
+    });
+
+    return clients.map((c) => c.id);
+  }
+
   async updateParentUserId(id: ID, parentUserId: ID | null) {
-    return this.#db
-      .update(user)
-      .set({ parentUserId })
-      .where(eq(user.id, id))
-      .execute();
+    return this.#db.transaction(async (tx) => {
+      await tx
+        .update(user)
+        .set({ parentUserId })
+        .where(eq(user.id, id))
+        .execute();
+
+      if (parentUserId !== null) {
+        await tx
+          .delete(userQuota)
+          .where(eq(userQuota.userId, id))
+          .execute();
+      }
+    });
   }
 
   async updateDefaultTrafficGroupId(id: ID, defaultTrafficGroupId: ID | null) {

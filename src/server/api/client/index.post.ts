@@ -86,6 +86,13 @@ export default definePermissionEventHandler(
     });
     const clientId = result[0]!.clientId;
 
+    // Edge case: if user is already over quota, disable the new client immediately
+    const rootId = await Database.users.getRootUserId(resolvedUserId);
+    const userQuota = await Database.quotas.getByUserId(rootId);
+    if (userQuota && userQuota.usedBytes >= userQuota.limitBytes && userQuota.autoDisable) {
+      await Database.clients.toggle(clientId, false);
+    }
+
     const iface = await Database.interfaces.get();
     const engine = getEngine(iface.engineType);
     const clients = await Database.clients.getAll();

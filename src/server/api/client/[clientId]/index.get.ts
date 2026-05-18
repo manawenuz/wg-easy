@@ -1,5 +1,5 @@
-import { ClientGetSchema } from '#db/repositories/client/types';
 import { getEngine } from '../../../engines/registry';
+import { ClientGetSchema } from '#db/repositories/client/types';
 
 export default definePermissionEventHandler(
   'clients',
@@ -24,10 +24,21 @@ export default definePermissionEventHandler(
     const engine = getEngine(iface.engineType);
     const usage = await engine.sampleUsage(iface);
     const data = usage.find((s) => s.publicKey === result.publicKey);
+    const rootId = await Database.users.getRootUserId(result.userId);
+    const quota = await Database.quotas.getByUserId(rootId);
 
     return {
       ...result,
       endpoint: data?.endpoint ?? null,
+      rootUserId: rootId,
+      quota: quota
+        ? {
+            limitBytes: quota.limitBytes,
+            usedBytes: quota.usedBytes,
+            period: quota.period,
+            periodEnd: quota.periodEnd,
+          }
+        : undefined,
     };
   }
 );

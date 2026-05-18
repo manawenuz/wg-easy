@@ -1,7 +1,7 @@
 ---
 id: PRD-60-13
 title: Per-user aggregate quota — share one bucket across a user's VPN connections
-status: draft
+status: shipped
 phase: P1
 priority: high
 severity: functional (quota does not enforce as advertised)
@@ -34,6 +34,12 @@ touches:
   - src/app/pages/clients/[id].vue
   - src/app/stores/clients.ts
   - src/i18n/locales/en.json
+  # added during implementation (PRD-gap, retroactively documented):
+  - src/server/database/schema.ts
+  - src/server/database/sqlite.ts
+  - src/server/api/client/[clientId]/index.get.ts
+  - src/server/api/client/index.post.ts
+  - src/app/pages/admin/users/[id].vue
 ---
 
 # PRD-60-13 — Per-user aggregate quota
@@ -238,3 +244,30 @@ Rollback: keep image of pre-deploy build (`manawenuz/wg-easy:edge-prev`); restor
 4. Migration runs cleanly on a DB seeded from the pre-deploy snapshot of 178.105.64.108.
 
 **Estimate:** ~half a day of focused work + UAT.
+
+---
+
+## Resolution log (2026-05-18)
+
+Shipped via Kimi. Migration `0016_per_user_quota` folds per-client `quota` rows into `user_quota` (sum `used_bytes`, earliest window, max `auto_disable`). Repository, service, scheduler, API, and UI all pivoted from `client_id` to `user_id`. Period reset no longer auto-re-enables peers (matches open-question decision 1). New client creation checks the user's quota state and creates the client as `enabled=false` if already over limit (matches Verification step 6). No new runtime dependencies. All new and rewritten tests pass; pre-existing failures in `boringtun/*` and `routeros-api.test.ts` are unrelated.
+
+### PRD-gap files added retroactively to `touches:`
+
+Kimi correctly flagged that the original `touches:` list missed five files that were structurally required:
+- `src/server/database/schema.ts` — re-export the renamed `userQuota` table.
+- `src/server/database/sqlite.ts` — wire `UserQuotaService` as `Database.quotas`.
+- `src/server/api/client/[clientId]/index.get.ts` — attach user's quota to single-client response.
+- `src/server/api/client/index.post.ts` — over-limit creation guard (creates as disabled).
+- `src/app/pages/admin/users/[id].vue` — mount `<ClientsQuotaForm :user-id="user.id" />`.
+
+Authoring lesson: when a PRD says "X form moves to page Y", page Y must be in `touches:`. When a service is renamed, the schema re-export file and the DI wiring file (`sqlite.ts` in this project) must be in `touches:`. Codified for future PRDs.
+
+### Deferred / out-of-scope follow-ups
+
+- **Quota inheritance from `traffic_group`** — admin still must explicitly PUT a user quota row. Auto-derivation deferred to PRD-60-15 backlog.
+- **`BaseSelect` "MB - MB" dropdown render** — pre-existing component template bug, also surfaced in PRD-20-06. Not in this PRD's scope.
+- **PRD-60-14 (shared family pool)** — depends on this; queued next.
+
+### Authoring note for PRD-60-14
+
+Because Kimi just renamed the on-disk service identifiers (`QuotaService` → `UserQuotaService`, table `quota` → `user_quota`, FK `client.id` → `user.id`), PRD-60-14's `touches:` list and reading-list paths remain valid as written — the file paths themselves did not change. The only conceptual shift the next PRD needs to honor is that `quotaService.setForUser(userId, …)` is now the public surface, so the `getRootUserId` indirection lands at the service-method entry point, not at the controller. Already reflected in PRD-60-14 §"Scope > In".

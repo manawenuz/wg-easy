@@ -113,6 +113,27 @@
       "when": 1778002000000,
       "tag": "0015_traffic_groups_and_subaccounts",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1778003000000,
+      "tag": "0016_per_user_quota",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1778004000000,
+      "tag": "0017_drop_subaccount_quota_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1778005000000,
+      "tag": "0018_fixup_quota_drop",
+      "breakpoints": true
     }
   ]
 }

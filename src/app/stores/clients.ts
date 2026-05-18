@@ -15,7 +15,7 @@ export type LocalClient = WGClientReturn & {
     limitBytes: number;
     usedBytes: number;
     period: string;
-    periodEnd: Date;
+    periodEnd: Date | string;
   };
   trafficGroup?: {
     id: number;

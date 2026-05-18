@@ -27,68 +27,50 @@ function getPeriodDates(period: 'daily' | 'weekly' | 'monthly'): {
 }
 
 export class QuotaService {
-  async getEffectiveQuota(clientId: ID) {
-    const client = await Database.clients.get(clientId);
-    if (!client) {
-      return null;
-    }
+  private async _resolveRootUserId(userId: ID): Promise<ID> {
+    return Database.users.getRootUserId(userId);
+  }
 
-    // Check if client has a traffic group with quota
-    if (client.trafficGroupId) {
-      const group = await Database.trafficGroups.get(client.trafficGroupId);
+  async getForUser(userId: ID) {
+    const rootId = await this._resolveRootUserId(userId);
+    const userQuota = await Database.quotas.getByUserId(rootId);
+    if (!userQuota) return null;
+
+    // Check if root user has a traffic group with quota
+    const user = await Database.users.get(rootId);
+    if (user?.defaultTrafficGroupId) {
+      const group = await Database.trafficGroups.get(user.defaultTrafficGroupId);
       if (group && group.quotaLimitBytes !== null && group.quotaPeriod) {
-        // Get or create quota tracking for this client based on group settings
-        const existing = await Database.quotas.getByClientId(clientId);
-        if (existing) {
-          return {
-            ...existing,
-            limitBytes: group.quotaLimitBytes,
-            period: group.quotaPeriod,
-            autoDisable: group.quotaAutoDisable ?? true,
-            source: 'group' as const,
-          };
-        }
-        // Return group settings even if no tracking exists yet
         return {
-          clientId,
+          ...userQuota,
           limitBytes: group.quotaLimitBytes,
           period: group.quotaPeriod,
           autoDisable: group.quotaAutoDisable ?? true,
-          usedBytes: 0,
           source: 'group' as const,
         };
       }
     }
 
-    // Fall back to per-client quota
-    const perClientQuota = await Database.quotas.getByClientId(clientId);
-    if (perClientQuota) {
-      return {
-        ...perClientQuota,
-        source: 'client' as const,
-      };
-    }
-
-    return null;
+    return {
+      ...userQuota,
+      source: 'user' as const,
+    };
   }
 
-  async getQuota(clientId: ID) {
-    return Database.quotas.getByClientId(clientId);
-  }
-
-  async setQuota(
-    clientId: ID,
+  async setForUser(
+    userId: ID,
     data: {
       limitBytes: number;
       period: 'daily' | 'weekly' | 'monthly';
       autoDisable?: boolean;
     }
   ) {
-    const existing = await Database.quotas.getByClientId(clientId);
+    const rootId = await this._resolveRootUserId(userId);
+    const existing = await Database.quotas.getByUserId(rootId);
     const { periodStart, periodEnd } = getPeriodDates(data.period);
 
     if (existing) {
-      await Database.quotas.update(clientId, {
+      await Database.quotas.update(rootId, {
         limitBytes: data.limitBytes,
         period: data.period,
         autoDisable: data.autoDisable ?? true,
@@ -97,7 +79,7 @@ export class QuotaService {
       });
     } else {
       await Database.quotas.create({
-        clientId,
+        userId: rootId,
         limitBytes: data.limitBytes,
         period: data.period,
         periodStart,
@@ -107,24 +89,24 @@ export class QuotaService {
     }
   }
 
-  async deleteQuota(clientId: ID) {
-    await Database.quotas.delete(clientId);
+  async clearForUser(userId: ID) {
+    const rootId = await this._resolveRootUserId(userId);
+    await Database.quotas.delete(rootId);
   }
 
-  async addUsage(clientId: ID, rxBytes: number, txBytes: number) {
-    const totalBytes = rxBytes + txBytes;
-    if (totalBytes <= 0) return;
+  async addBytes(userId: ID, bytes: number) {
+    if (bytes <= 0) return;
 
-    const effectiveQuota = await this.getEffectiveQuota(clientId);
+    const rootId = await this._resolveRootUserId(userId);
+    const effectiveQuota = await this.getForUser(rootId);
     if (!effectiveQuota) return;
 
     // Ensure quota tracking exists in database
-    const existing = await Database.quotas.getByClientId(clientId);
+    const existing = await Database.quotas.getByUserId(rootId);
     if (!existing && effectiveQuota.source === 'group') {
-      // Create quota tracking for group-based quota
       const { periodStart, periodEnd } = getPeriodDates(effectiveQuota.period);
       await Database.quotas.create({
-        clientId,
+        userId: rootId,
         limitBytes: effectiveQuota.limitBytes,
         period: effectiveQuota.period,
         periodStart,
@@ -133,55 +115,60 @@ export class QuotaService {
       });
     }
 
-    await Database.quotas.addUsage(clientId, totalBytes);
-  }
-
-  async findOverLimit() {
-    // Get all clients
-    const clients = await Database.clients.getAll();
-    const overLimit = [];
-
-    for (const client of clients) {
-      const effectiveQuota = await this.getEffectiveQuota(client.id);
-      if (!effectiveQuota) continue;
-
-      // Check if over limit
-      if (effectiveQuota.usedBytes > effectiveQuota.limitBytes) {
-        overLimit.push({
-          clientId: client.id,
-          limitBytes: effectiveQuota.limitBytes,
-          usedBytes: effectiveQuota.usedBytes,
-          autoDisable: effectiveQuota.autoDisable,
-        });
-      }
-    }
-
-    return overLimit;
+    await Database.quotas.addUsage(rootId, bytes);
   }
 
   async findExpiredPeriods() {
     return Database.quotas.findExpiredPeriods();
   }
 
-  async resetPeriod(quotaRow: {
-    clientId: ID;
-    period: 'daily' | 'weekly' | 'monthly';
-  }) {
-    const { periodStart, periodEnd } = getPeriodDates(quotaRow.period);
-    await Database.quotas.update(quotaRow.clientId, {
+  async evaluateAll() {
+    const userQuotas = await Database.quotas.findOverLimit();
+    const result: {
+      userId: ID;
+      overLimit: boolean;
+      autoDisable: boolean;
+      usedBytes: number;
+      limitBytes: number;
+    }[] = [];
+
+    for (const uq of userQuotas) {
+      result.push({
+        userId: uq.userId,
+        overLimit: true,
+        autoDisable: uq.autoDisable,
+        usedBytes: uq.usedBytes,
+        limitBytes: uq.limitBytes,
+      });
+    }
+
+    return result;
+  }
+
+  async resetPeriodIfNeeded(userId: ID, now: Date) {
+    const rootId = await this._resolveRootUserId(userId);
+    const uq = await Database.quotas.getByUserId(rootId);
+    if (!uq) return false;
+    if (uq.periodEnd > now) return false;
+
+    const { periodStart, periodEnd } = getPeriodDates(uq.period);
+    await Database.quotas.update(rootId, {
       usedBytes: 0,
       periodStart,
       periodEnd,
       disabledByQuotaAt: null,
     });
+    return true;
   }
 
-  async markDisabledByQuota(clientId: ID) {
-    await Database.quotas.markDisabledByQuota(clientId);
+  async markDisabledByQuota(userId: ID) {
+    const rootId = await this._resolveRootUserId(userId);
+    await Database.quotas.markDisabledByQuota(rootId);
   }
 
-  async clearDisabledByQuota(clientId: ID) {
-    await Database.quotas.clearDisabledByQuota(clientId);
+  async clearDisabledByQuota(userId: ID) {
+    const rootId = await this._resolveRootUserId(userId);
+    await Database.quotas.clearDisabledByQuota(rootId);
   }
 
   async insertUsageSample(

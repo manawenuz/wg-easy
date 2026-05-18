@@ -1,21 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runPeriodResetter } from './periodResetter';
 
-const mockEnablePeer = vi.fn(async () => {});
-
-vi.mock('../engines/registry', () => ({
-  getEngine: vi.fn(() => ({
-    enablePeer: (...args: unknown[]) => mockEnablePeer(...args),
-  })),
-}));
-
 const mockFindExpiredPeriods = vi.fn(async () => []);
-const mockResetPeriod = vi.fn(async () => {});
+const mockResetPeriodIfNeeded = vi.fn(async () => false);
+const mockAuditLogsCreate = vi.fn(async () => {});
 
 vi.mock('../services/quotaService', () => ({
   quotaService: {
     findExpiredPeriods: (...args: unknown[]) => mockFindExpiredPeriods(...args),
-    resetPeriod: (...args: unknown[]) => mockResetPeriod(...args),
+    resetPeriodIfNeeded: (...args: unknown[]) => mockResetPeriodIfNeeded(...args),
   },
 }));
 
@@ -28,17 +21,12 @@ describe('periodResetter', () => {
         get: vi.fn(async () => ({ name: 'wg0', engineType: 'wireguard' })),
       },
       clients: {
-        get: vi.fn(async (clientId: number) => ({
-          id: clientId,
-          publicKey: `pk${clientId}`,
-          enabled: true,
-          name: `client${clientId}`,
-        })),
+        get: vi.fn(async () => ({ id: 1, publicKey: 'pk1', enabled: true, name: 'client1' })),
         toggle: vi.fn(async () => {}),
       },
       auditLogs: {
         getAllPaginated: vi.fn(async () => ({ items: [], total: 0 })),
-        create: vi.fn(async () => {}),
+        create: mockAuditLogsCreate,
       },
     });
   });
@@ -46,126 +34,71 @@ describe('periodResetter', () => {
   it('resets expired periods', async () => {
     mockFindExpiredPeriods.mockResolvedValueOnce([
       {
-        clientId: 1,
+        userId: 1,
         period: 'daily',
         disabledByQuotaAt: null,
       },
     ]);
+    mockResetPeriodIfNeeded.mockResolvedValueOnce(true);
 
     await runPeriodResetter();
 
-    expect(mockResetPeriod).toHaveBeenCalledTimes(1);
-    expect(mockResetPeriod).toHaveBeenCalledWith({ clientId: 1, period: 'daily' });
-    expect(mockEnablePeer).not.toHaveBeenCalled();
+    expect(mockResetPeriodIfNeeded).toHaveBeenCalledTimes(1);
+    expect(mockResetPeriodIfNeeded).toHaveBeenCalledWith(1, expect.any(Date));
+    expect(mockAuditLogsCreate).not.toHaveBeenCalled();
   });
 
-  it('re-enables peer when quota disabled it and no manual disable since', async () => {
+  it('creates audit log when quota-disabled user gets reset', async () => {
     const disabledAt = new Date(Date.now() - 3600_000);
     mockFindExpiredPeriods.mockResolvedValueOnce([
       {
-        clientId: 1,
+        userId: 1,
         period: 'daily',
         disabledByQuotaAt: disabledAt,
       },
     ]);
+    mockResetPeriodIfNeeded.mockResolvedValueOnce(true);
 
     await runPeriodResetter();
 
-    expect(mockResetPeriod).toHaveBeenCalledTimes(1);
-    expect(Database.clients.toggle).toHaveBeenCalledTimes(1);
-    expect(Database.clients.toggle).toHaveBeenCalledWith(1, true);
-    expect(mockEnablePeer).toHaveBeenCalledTimes(1);
-    expect(mockEnablePeer).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'wg0' }),
-      'pk1'
-    );
-    expect(Database.auditLogs.create).toHaveBeenCalledWith(
+    expect(mockResetPeriodIfNeeded).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogsCreate).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'quota.periodReset',
-        target: expect.objectContaining({ clientId: 1 }),
+        target: expect.objectContaining({ userId: 1 }),
         result: 'ok',
       })
     );
   });
 
-  it('does not re-enable peer if manually disabled after quota disable', async () => {
+  it('does not re-enable peers after reset', async () => {
     const disabledAt = new Date(Date.now() - 3600_000);
     mockFindExpiredPeriods.mockResolvedValueOnce([
       {
-        clientId: 1,
+        userId: 1,
         period: 'daily',
         disabledByQuotaAt: disabledAt,
       },
     ]);
-
-    vi.stubGlobal('Database', {
-      interfaces: {
-        get: vi.fn(async () => ({ name: 'wg0', engineType: 'wireguard' })),
-      },
-      clients: {
-        get: vi.fn(async (clientId: number) => ({
-          id: clientId,
-          publicKey: `pk${clientId}`,
-          enabled: false,
-          name: `client${clientId}`,
-        })),
-        toggle: vi.fn(async () => {}),
-      },
-      auditLogs: {
-        getAllPaginated: vi.fn(async () => ({
-          items: [
-            {
-              action: 'client.disabled',
-              target: JSON.stringify({ clientId: 1 }),
-              createdAt: new Date(disabledAt.getTime() + 1000),
-            },
-          ],
-          total: 1,
-        })),
-        create: vi.fn(async () => {}),
-      },
-    });
+    mockResetPeriodIfNeeded.mockResolvedValueOnce(true);
 
     await runPeriodResetter();
 
-    expect(mockResetPeriod).toHaveBeenCalledTimes(1);
-    expect(mockEnablePeer).not.toHaveBeenCalled();
-  });
-
-  it('logs error when engine enablePeer fails', async () => {
-    const disabledAt = new Date(Date.now() - 3600_000);
-    mockFindExpiredPeriods.mockResolvedValueOnce([
-      {
-        clientId: 2,
-        period: 'weekly',
-        disabledByQuotaAt: disabledAt,
-      },
-    ]);
-
-    mockEnablePeer.mockRejectedValueOnce(new Error('wg command failed'));
-
-    await runPeriodResetter();
-
-    expect(mockEnablePeer).toHaveBeenCalledTimes(1);
-    expect(Database.auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'quota.periodReset',
-        target: expect.objectContaining({ clientId: 2, error: 'wg command failed' }),
-        result: 'error',
-      })
-    );
+    expect(Database.clients.toggle).not.toHaveBeenCalled();
   });
 
   it('handles weekly and monthly periods', async () => {
     mockFindExpiredPeriods.mockResolvedValueOnce([
-      { clientId: 1, period: 'weekly', disabledByQuotaAt: null },
-      { clientId: 2, period: 'monthly', disabledByQuotaAt: null },
+      { userId: 1, period: 'weekly', disabledByQuotaAt: null },
+      { userId: 2, period: 'monthly', disabledByQuotaAt: null },
     ]);
+    mockResetPeriodIfNeeded.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
 
     await runPeriodResetter();
 
-    expect(mockResetPeriod).toHaveBeenCalledTimes(2);
-    expect(mockResetPeriod).toHaveBeenNthCalledWith(1, { clientId: 1, period: 'weekly' });
-    expect(mockResetPeriod).toHaveBeenNthCalledWith(2, { clientId: 2, period: 'monthly' });
+    expect(mockResetPeriodIfNeeded).toHaveBeenCalledTimes(2);
+    expect(mockResetPeriodIfNeeded).toHaveBeenNthCalledWith(1, 1, expect.any(Date));
+    expect(mockResetPeriodIfNeeded).toHaveBeenNthCalledWith(2, 2, expect.any(Date));
   });
 });

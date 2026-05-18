@@ -187,7 +187,28 @@
               :label="$t('hooks.postDown')"
             />
           </FormGroup>
-          <ClientsQuotaForm :client-id="data.id" />
+          <FormGroup>
+            <FormHeading>{{ $t('client.quota.title') }}</FormHeading>
+            <div v-if="data.quota" class="col-span-full">
+              <ClientsQuotaProgress
+                :used-bytes="data.quota.usedBytes"
+                :limit-bytes="data.quota.limitBytes"
+                :period="data.quota.period"
+                :period-end="data.quota.periodEnd"
+              />
+            </div>
+            <div v-else class="col-span-full text-sm text-gray-500 dark:text-neutral-400">
+              {{ $t('client.quota.viewOnly') }}
+            </div>
+            <div v-if="data.rootUserId || data.userId" class="col-span-full">
+              <NuxtLink
+                :to="`/admin/users/${data.rootUserId ?? data.userId}`"
+                class="text-sm text-red-700 hover:underline dark:text-red-400"
+              >
+                {{ $t('client.quota.editOnUser') }}
+              </NuxtLink>
+            </div>
+          </FormGroup>
           <ClientsSpeedLimitForm :client-id="Number(id)" />
           <FormGroup>
             <FormHeading>{{ $t('form.actions') }}</FormHeading>

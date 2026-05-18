@@ -5,19 +5,12 @@ export default defineEventHandler(async (event) => {
   if (!id || Number.isNaN(id)) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid client ID',
+      statusMessage: 'Invalid user ID',
     });
   }
 
-  const client = await Database.clients.get(id);
-  if (!client) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Client not found',
-    });
-  }
-
-  const quota = await Database.quotas.getByUserId(client.userId);
+  const rootId = await Database.users.getRootUserId(id);
+  const quota = await Database.quotas.getByUserId(rootId);
 
   if (!quota) {
     return null;
@@ -32,5 +25,6 @@ export default defineEventHandler(async (event) => {
     periodEnd: quota.periodEnd,
     autoDisable: quota.autoDisable,
     disabledByQuotaAt: quota.disabledByQuotaAt,
+    inheritedFromUserId: id !== rootId ? rootId : undefined,
   };
 });

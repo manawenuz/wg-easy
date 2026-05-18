@@ -1,4 +1,4 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import type { quota } from './schema';
+import type { userQuota } from './schema';
 
-export type QuotaType = InferSelectModel<typeof quota>;
+export type UserQuotaType = InferSelectModel<typeof userQuota>;

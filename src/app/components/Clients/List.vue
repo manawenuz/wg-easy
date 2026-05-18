@@ -5,6 +5,17 @@
     class="border-b border-solid border-gray-100 last:border-b-0 dark:border-neutral-600"
   >
     <div
+      v-if="group.quota"
+      class="px-3 pt-3 sm:px-5"
+    >
+      <ClientsQuotaProgress
+        :used-bytes="group.quota.usedBytes"
+        :limit-bytes="group.quota.limitBytes"
+        :period="group.quota.period"
+        :period-end="group.quota.periodEnd"
+      />
+    </div>
+    <div
       v-for="(client, idx) in group.clients"
       :key="client.id"
       :class="[
@@ -17,7 +28,7 @@
       <div v-if="idx > 0" class="pointer-events-none absolute left-2 top-0 hidden h-full items-center sm:flex">
         <span class="text-xs text-gray-400 dark:text-neutral-500">↳</span>
       </div>
-      <ClientCard :client="client" />
+      <ClientCard :client="client" :show-quota="!group.quota" />
     </div>
   </div>
 </template>
@@ -27,7 +38,7 @@ const clientsStore = useClientsStore();
 
 const groupedClients = computed(() => {
   const list = clientsStore.clients ?? [];
-  const groups = new Map<string, { userId: number | null; clients: typeof list }>();
+  const groups = new Map<string, { userId: number | null; clients: typeof list; quota?: typeof list[number]['quota'] }>();
   for (const c of list) {
     const key = c.userId != null ? `u-${c.userId}` : `c-${c.id}`;
     if (!groups.has(key)) {
@@ -38,6 +49,11 @@ const groupedClients = computed(() => {
   // Stable order: by first client's id within each group
   for (const g of groups.values()) {
     g.clients.sort((a, b) => a.id - b.id);
+    // Use the first client's quota as the group quota
+    const firstWithQuota = g.clients.find((c) => c.quota);
+    if (firstWithQuota?.quota) {
+      g.quota = firstWithQuota.quota;
+    }
   }
   return Array.from(groups.values()).sort((a, b) => a.clients[0]!.id - b.clients[0]!.id);
 });

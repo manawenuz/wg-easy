@@ -1,4 +1,4 @@
-import { eq, sql, or, like, and } from 'drizzle-orm';
+import { eq, sql, or, like, and, inArray } from 'drizzle-orm';
 import { containsCidr, parseCidr } from 'cidr-tools';
 import { client } from './schema';
 import type {
@@ -256,6 +256,23 @@ export class ClientService {
         .returning({ clientId: client.id })
         .execute();
     });
+  }
+
+  async getForUsers(userIds: ID[]) {
+    if (userIds.length === 0) return [];
+    const result = await this.#db.query.client.findMany({
+      where: inArray(client.userId, userIds),
+      with: { oneTimeLink: true },
+      columns: {
+        privateKey: false,
+        preSharedKey: false,
+      },
+    });
+    return result.map((row) => ({
+      ...row,
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+    }));
   }
 
   toggle(id: ID, enabled: boolean) {

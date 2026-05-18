@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
-describe('admin/clients/[id]/quota.delete', () => {
-  const mockUser = (id: number, role: number) => ({
+describe('admin/users/[id]/quota.delete', () => {
+  const mockUser = (id: number, role: number, parentUserId: number | null = null) => ({
     id,
     username: `user${id}`,
     name: `User ${id}`,
@@ -11,6 +11,7 @@ describe('admin/clients/[id]/quota.delete', () => {
     totpKey: null,
     totpVerified: false,
     enabled: true,
+    parentUserId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
@@ -40,32 +41,57 @@ describe('admin/clients/[id]/quota.delete', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('Database', {
-      clients: {
+      users: {
         get: vi.fn(async (id: number) => {
-          if (id === 1) return { id: 1, name: 'client1', userId: 10 };
+          if (id === 1) return mockUser(1, 3, null);
+          if (id === 2) return mockUser(2, 2, 1);
           return undefined;
         }),
+        getRootUserId: vi.fn(async (id: number) => {
+          if (id === 2) return 1;
+          return id;
+        }),
+      },
+      quotas: {
+        delete: vi.fn(async () => {}),
+      },
+      auditLogs: {
+        create: vi.fn(async () => {}),
       },
     });
+    vi.stubGlobal('logAction', vi.fn(async () => {}));
   });
 
-  it('returns 410 Gone for existing client', async () => {
+  it('deletes quota for root user', async () => {
     const handler = (await import('./quota.delete')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' }
     );
 
-    await expect(handler(event)).rejects.toThrow('Per-client quota management has been removed');
+    const result = await handler(event);
+    expect(result).toEqual({ ok: true });
+    expect(Database.quotas.delete).toHaveBeenCalledWith(1);
   });
 
-  it('returns 404 for nonexistent client', async () => {
+  it('returns 409 for sub-account', async () => {
+    const handler = (await import('./quota.delete')).default as Handler;
+    const event = makeEvent(
+      { kind: 'user', user: mockUser(1, 3) },
+      { id: '2' }
+    );
+
+    await expect(handler(event)).rejects.toThrow('quota_inherited');
+    await expect(handler(event)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('returns 404 for nonexistent user', async () => {
     const handler = (await import('./quota.delete')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' }
     );
 
-    await expect(handler(event)).rejects.toThrow('Client not found');
+    await expect(handler(event)).rejects.toThrow('User not found');
   });
 });

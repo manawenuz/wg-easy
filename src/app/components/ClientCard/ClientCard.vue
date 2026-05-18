@@ -20,7 +20,7 @@
           </div>
           <ClientCardOneTimeLink :client="client" />
           <ClientCardExpireDate :client="client" />
-          <ClientCardQuota :client="client" />
+          <ClientCardQuota v-if="showQuota" :client="client" />
         </div>
 
         <div
@@ -55,5 +55,6 @@
 <script setup lang="ts">
 defineProps<{
   client: LocalClient;
+  showQuota?: boolean;
 }>();
 </script>

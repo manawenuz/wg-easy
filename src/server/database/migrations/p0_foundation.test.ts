@@ -19,7 +19,7 @@ describe('p0 foundation migration', () => {
     const tableNames = tables.map((t) => t.name);
 
     expect(tableNames).toContain('router');
-    expect(tableNames).toContain('quota');
+    expect(tableNames).toContain('user_quota');
     expect(tableNames).toContain('speed_limit');
     expect(tableNames).toContain('usage_sample');
     expect(tableNames).toContain('audit_log');

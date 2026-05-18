@@ -1,13 +1,3 @@
-import z from 'zod';
-import { logAction } from '../../../../utils/audit';
-import { quotaService } from '../../../../services/quotaService';
-
-const QuotaPutSchema = z.object({
-  limitBytes: z.number().int().positive(),
-  period: z.enum(['daily', 'weekly', 'monthly']),
-  autoDisable: z.boolean().optional(),
-});
-
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'admin:settings');
 
@@ -19,10 +9,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const body = await readValidatedBody(event, (data) =>
-    QuotaPutSchema.parse(data)
-  );
-
   const client = await Database.clients.get(id);
   if (!client) {
     throw createError({
@@ -31,17 +17,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  await quotaService.setQuota(id, {
-    limitBytes: body.limitBytes,
-    period: body.period,
-    autoDisable: body.autoDisable ?? true,
+  throw createError({
+    statusCode: 410,
+    statusMessage: 'Per-client quota management has been removed. Use PUT /api/admin/users/{userId}/quota instead.',
   });
-
-  await logAction(event, 'quota.set', {
-    clientId: id,
-    limitBytes: body.limitBytes,
-    period: body.period,
-  });
-
-  return { ok: true };
 });

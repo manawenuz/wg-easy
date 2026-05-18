@@ -35,9 +35,9 @@ export async function runUsagePoller() {
         Number(sample.txBytes)
       );
 
-      const quota = await quotaService.getQuota(client.id);
+      const quota = await quotaService.getForUser(client.userId);
       if (quota) {
-        await quotaService.addUsage(client.id, rxDelta, txDelta);
+        await quotaService.addBytes(client.userId, rxDelta + txDelta);
       }
     }
   }

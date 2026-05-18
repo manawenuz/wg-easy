@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
-describe('admin/clients/[id]/quota.get', () => {
-  const mockUser = (id: number, role: number) => ({
+describe('admin/users/[id]/quota.get', () => {
+  const mockUser = (id: number, role: number, parentUserId: number | null = null) => ({
     id,
     username: `user${id}`,
     name: `User ${id}`,
@@ -11,6 +11,7 @@ describe('admin/clients/[id]/quota.get', () => {
     totpKey: null,
     totpVerified: false,
     enabled: true,
+    parentUserId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
@@ -40,17 +41,17 @@ describe('admin/clients/[id]/quota.get', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('Database', {
-      clients: {
-        get: vi.fn(async (id: number) => {
-          if (id === 1) return { id: 1, name: 'client1', userId: 10 };
-          return undefined;
+      users: {
+        getRootUserId: vi.fn(async (id: number) => {
+          if (id === 2) return 1; // sub-account 2 → root 1
+          return id;
         }),
       },
       quotas: {
-        getByUserId: vi.fn(async (userId: number) => {
-          if (userId === 10) {
+        getByUserId: vi.fn(async (id: number) => {
+          if (id === 1) {
             return {
-              userId: 10,
+              userId: 1,
               limitBytes: 1073741824,
               usedBytes: 536870912,
               period: 'daily',
@@ -66,7 +67,7 @@ describe('admin/clients/[id]/quota.get', () => {
     });
   });
 
-  it('returns user quota resolved through client', async () => {
+  it('returns quota for root user', async () => {
     const handler = (await import('./quota.get')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
@@ -75,10 +76,26 @@ describe('admin/clients/[id]/quota.get', () => {
 
     const result = await handler(event);
     expect(result).toMatchObject({
-      userId: 10,
+      userId: 1,
       limitBytes: 1073741824,
       usedBytes: 536870912,
       period: 'daily',
+      inheritedFromUserId: undefined,
+    });
+  });
+
+  it('returns inherited quota for sub-account with inheritedFromUserId', async () => {
+    const handler = (await import('./quota.get')).default as Handler;
+    const event = makeEvent(
+      { kind: 'user', user: mockUser(2, 2, 1) },
+      { id: '2' }
+    );
+
+    const result = await handler(event);
+    expect(result).toMatchObject({
+      userId: 1,
+      limitBytes: 1073741824,
+      inheritedFromUserId: 1,
     });
   });
 
@@ -86,39 +103,20 @@ describe('admin/clients/[id]/quota.get', () => {
     const handler = (await import('./quota.get')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
-      { id: '1' }
+      { id: '99' }
     );
-
-    vi.stubGlobal('Database', {
-      clients: {
-        get: vi.fn(async () => ({ id: 1, name: 'client1', userId: 99 })),
-      },
-      quotas: {
-        getByUserId: vi.fn(async () => undefined),
-      },
-    });
 
     const result = await handler(event);
     expect(result).toBeNull();
   });
 
-  it('rejects invalid client id', async () => {
+  it('rejects invalid user id', async () => {
     const handler = (await import('./quota.get')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: 'invalid' }
     );
 
-    await expect(handler(event)).rejects.toThrow('Invalid client ID');
-  });
-
-  it('returns 404 for nonexistent client', async () => {
-    const handler = (await import('./quota.get')).default as Handler;
-    const event = makeEvent(
-      { kind: 'user', user: mockUser(1, 3) },
-      { id: '99' }
-    );
-
-    await expect(handler(event)).rejects.toThrow('Client not found');
+    await expect(handler(event)).rejects.toThrow('Invalid user ID');
   });
 });

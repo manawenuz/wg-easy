@@ -18,15 +18,13 @@ describe('admin/clients/[id]/quota.put', () => {
   type Handler = (event: {
     context: { principal: { kind: string; user: ReturnType<typeof mockUser> } };
     _params: { id: string };
-    _body: object;
   }) => Promise<unknown>;
 
   const makeEvent = (
     principal: { kind: string; user: ReturnType<typeof mockUser> },
-    params: { id: string },
-    body: object
+    params: { id: string }
   ) =>
-    ({ context: { principal }, _params: params, _body: body }) as Parameters<Handler>[0];
+    ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
 
   beforeAll(() => {
     vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
@@ -37,7 +35,6 @@ describe('admin/clients/[id]/quota.put', () => {
       throw err;
     }));
     vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
-    vi.stubGlobal('readValidatedBody', vi.fn(async (event: { _body: object }) => event._body));
   });
 
   beforeEach(() => {
@@ -45,57 +42,28 @@ describe('admin/clients/[id]/quota.put', () => {
     vi.stubGlobal('Database', {
       clients: {
         get: vi.fn(async (id: number) => {
-          if (id === 1 || id === 2) return { id, name: `client${id}` };
+          if (id === 1) return { id: 1, name: 'client1', userId: 10 };
           return undefined;
         }),
-      },
-      quotas: {
-        getByClientId: vi.fn(async (id: number) => {
-          if (id === 1) return { clientId: 1, limitBytes: 100, period: 'daily' };
-          return undefined;
-        }),
-        create: vi.fn(async () => {}),
-        update: vi.fn(async () => {}),
-      },
-      auditLogs: {
-        create: vi.fn(async () => {}),
       },
     });
-    vi.stubGlobal('logAction', vi.fn(async () => {}));
   });
 
-  it('creates quota for new client', async () => {
+  it('returns 410 Gone for existing client', async () => {
     const handler = (await import('./quota.put')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
-      { id: '2' },
-      { limitBytes: 1073741824, period: 'monthly', autoDisable: true }
+      { id: '1' }
     );
 
-    const result = await handler(event);
-    expect(result).toEqual({ ok: true });
-    expect(Database.quotas.create).toHaveBeenCalled();
-  });
-
-  it('updates existing quota', async () => {
-    const handler = (await import('./quota.put')).default as Handler;
-    const event = makeEvent(
-      { kind: 'user', user: mockUser(1, 3) },
-      { id: '1' },
-      { limitBytes: 2147483648, period: 'weekly' }
-    );
-
-    const result = await handler(event);
-    expect(result).toEqual({ ok: true });
-    expect(Database.quotas.update).toHaveBeenCalled();
+    await expect(handler(event)).rejects.toThrow('Per-client quota management has been removed');
   });
 
   it('returns 404 for nonexistent client', async () => {
     const handler = (await import('./quota.put')).default as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
-      { id: '99' },
-      { limitBytes: 1000, period: 'daily' }
+      { id: '99' }
     );
 
     await expect(handler(event)).rejects.toThrow('Client not found');

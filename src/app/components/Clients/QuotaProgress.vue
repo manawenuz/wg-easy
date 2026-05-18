@@ -16,6 +16,12 @@
       <span>{{ bytes(usedBytes) }}</span>
       <span>{{ bytes(limitBytes) }}</span>
     </div>
+    <div
+      v-if="sharedAccounts && sharedAccounts > 1"
+      class="text-xs text-gray-400 dark:text-neutral-500"
+    >
+      {{ $t('client.quota.sharedAcross', { count: sharedAccounts }) }}
+    </div>
   </div>
 </template>
 
@@ -25,6 +31,7 @@ const props = defineProps<{
   limitBytes: number;
   period: 'daily' | 'weekly' | 'monthly';
   periodEnd: Date | string;
+  sharedAccounts?: number;
 }>();
 
 const periodLabel = computed(() => {

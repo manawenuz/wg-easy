@@ -1,5 +1,3 @@
-import { logAction } from '../../../../utils/audit';
-
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'admin:settings');
 
@@ -19,9 +17,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  await Database.quotas.delete(id);
-
-  await logAction(event, 'quota.delete', { clientId: id });
-
-  return { ok: true };
+  throw createError({
+    statusCode: 410,
+    statusMessage: 'Per-client quota management has been removed. Use DELETE /api/admin/users/{userId}/quota instead.',
+  });
 });

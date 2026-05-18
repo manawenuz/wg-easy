@@ -17,6 +17,7 @@ export default defineConfig({
             'server/engines/**/*.test.ts',
             'server/transports/**/*.test.ts',
             'server/database/migrations/**/*.test.ts',
+            'server/database/repositories/**/*.test.ts',
             'server/utils/*.test.ts',
             'server/scheduler/**/*.test.ts',
             'server/services/**/*.test.ts',

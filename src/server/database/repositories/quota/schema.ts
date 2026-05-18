@@ -1,11 +1,11 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-import { client } from '../../schema';
+import { user } from '../../schema';
 
-export const quota = sqliteTable('quota', {
-  clientId: integer('client_id')
+export const userQuota = sqliteTable('user_quota', {
+  userId: integer('user_id')
     .primaryKey()
-    .references(() => client.id, { onDelete: 'cascade' }),
+    .references(() => user.id, { onDelete: 'cascade' }),
   limitBytes: integer('limit_bytes', { mode: 'number' }).notNull(),
   period: text('period')
     .$type<'daily' | 'weekly' | 'monthly'>()

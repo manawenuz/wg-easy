@@ -1,5 +1,5 @@
-import { ClientQuerySchema } from '#db/repositories/client/types';
 import { getEngine } from '../../engines/registry';
+import { ClientQuerySchema } from '#db/repositories/client/types';
 
 export default definePermissionEventHandler(
   'clients',
@@ -37,9 +37,28 @@ export default definePermissionEventHandler(
     const quotas = await Database.quotas.getAll();
     const trafficGroups = await Database.trafficGroups.getAll();
 
+    // Build root-user map so sub-accounts resolve the family quota
+    const allUsers = await Database.users.getAll();
+    const parentMap = new Map<number, number | null>();
+    for (const u of allUsers) {
+      parentMap.set(u.id, u.parentUserId ?? null);
+    }
+    function getRoot(userId: number): number {
+      let current = userId;
+      const seen = new Set<number>();
+      while (true) {
+        const parent = parentMap.get(current);
+        if (parent === null || parent === undefined) return current;
+        if (seen.has(parent)) return current;
+        seen.add(current);
+        current = parent;
+      }
+    }
+
     const clients = dbClients.map((client) => {
       const sample = usage.find((s) => s.publicKey === client.publicKey);
-      const quota = quotas.find((q) => q.clientId === client.id);
+      const rootId = getRoot(client.userId);
+      const quota = quotas.find((q) => q.userId === rootId);
       const trafficGroup = client.trafficGroupId
         ? trafficGroups.find((g) => g.id === client.trafficGroupId)
         : undefined;
