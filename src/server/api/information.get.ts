@@ -15,10 +15,9 @@ export default defineEventHandler(async () => {
   const latestRelease = isEdgeBuild
     ? await cachedFetchLatestEdgeCandidate()
     : await cachedFetchLatestRelease();
-  const updateAvailable =
-    isEdgeBuild && WG_BUILD.REVISION
-      ? latestRelease.revision !== WG_BUILD.REVISION
-      : gt(latestRelease.version, RELEASE);
+  const updateAvailable = isEdgeBuild
+    ? !!WG_BUILD.REVISION && latestRelease.revision !== WG_BUILD.REVISION
+    : gt(latestRelease.version, RELEASE);
   const insecure = WG_ENV.INSECURE;
   const awgAvailable = await isAwgAvailable();
   const wgInterface = await Database.interfaces.get();
