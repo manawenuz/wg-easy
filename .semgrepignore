@@ -1,0 +1,4 @@
+# TLS fingerprint discovery intentionally connects without CA verification so
+# admins can capture SPKI/leaf pins from self-signed RouterOS endpoints. The
+# runtime RouterOS API connection still enforces configured fingerprints.
+src/server/transports/tls-pin.ts

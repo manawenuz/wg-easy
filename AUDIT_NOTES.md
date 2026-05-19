@@ -3,6 +3,7 @@
 This document summarizes the technical state of the codebase after the first three major phases, including known gaps, architectural deviations, and follow-up tasks.
 
 ## 1. Architectural Integrity
+
 - **VpnEngine Abstraction:** The abstraction is solid. We have four working engines: `wireguard`, `amneziawg`, `boringtun`, and `mikrotik`.
 - **Registry:** The `registry.ts` correctly handles dynamic resolution of engines per interface.
 - **Transports:** `LocalShell`, `SshTransport`, and `RouterOsApiTransport` provide a clean separation between engine logic and communication protocols.
@@ -11,18 +12,25 @@ This document summarizes the technical state of the codebase after the first thr
 - **Scheduler:** The background workers (`usagePoller`, `quotaEvaluator`, etc.) are correctly initialized in `Database.ts` and handle multi-engine interfaces. Verified that usage injection correctly triggers peer disabling.
 
 ## 2. Security Audit
+
 - **RBAC:** Principal context and `requirePermission` are enforced in all new API routes.
+- **Router ACL scoping:** Admin router ACLs are now enforced for router/interface listing, admin usage aggregation, router mutations, and per-client speed-limit/usage routes.
 - **Encryption:** Router credentials are encrypted at rest using `aes-256-gcm`.
+- **AES-GCM tag length:** Encryption and decryption now explicitly require a 16-byte authentication tag.
+- **TLS pinning:** RouterOS API TLS supports SPKI/leaf fingerprint pinning. The certificate fingerprint discovery helper intentionally connects without CA verification only to read the presented certificate for pin setup.
+- **Runtime artifacts:** Generated WireGuard configs under `data/wireguard/*.conf` are ignored and should not be committed.
 - **Crypto (Login):** The QR/Key login uses a secure X25519 ECDH handshake + SHA-512 proof-of-possession. Private keys are never sent to the server.
 
 ## 3. Known Gaps & Punted Tasks
 
 ### i18n (Translations)
+
 - **Dashboard:** Many keys in the User Dashboard and login pages (`dashboard.*`) are referenced but not yet present in `en.json` or other locales.
 - **Capabilities:** Engine capability labels ("Speed Limit", "Live Stats") in the Engine Selector are currently hardcoded in English.
 - **Speed Limits:** Badge labels are hardcoded.
 
 ### MikroTik
+
 - **Transport:** Switched from `node-routeros` API to `RouterOsSshTransport` due to compatibility issues with ROS 7.22+. Verified on live hardware (ROS 7.22.1).
 - **SSH Connectivity:** Supports both password and key-based authentication. Parsed output handles terse formats, unit conversions (KiB/MiB), and duration parsing.
 - **show-ids:** The transport now uses `show-ids` in `print` commands to reliably get internal IDs for `set` and `remove` operations, which is more robust than using indexes in short-lived SSH sessions.
@@ -31,10 +39,12 @@ This document summarizes the technical state of the codebase after the first thr
 - **Obfuscation:** The `generateClientObfuscatorConfig()` helper is implemented on the engine but **not yet wired** into the `/api/client/:id/configuration` or dashboard download routes.
 
 ### Multi-Engine
+
 - **AmneziaWG:** Parameters are currently shared via the interface. Fine-grained per-peer AWG parameter overrides in the UI were punted.
 - **BoringTun:** Requires a host with `boringtun-cli` installed. The Dockerfile now builds this, but manual host installs must ensure the binary is on the `PATH`.
 
 ## 4. Test Suite Health
-- **Total Tests:** ~165 unit tests across the suite.
+
+- **Total Tests:** 292 passing unit tests, 1 skipped test (`pnpm test:unit -- --runInBand`, 2026-05-19).
 - **Coverage:** Excellent coverage for crypto, engine logic, and API controllers.
-- **Note:** `usage.get.test.ts` was reported as flaky by the implementer; verify during UAT.
+- **Known repo check debt:** Full `pnpm typecheck`, `pnpm lint`, and `pnpm format:check` still fail on pre-existing fork-wide issues. The current green gate is the unit suite plus focused lint/type checks on touched areas.

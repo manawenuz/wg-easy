@@ -19,10 +19,10 @@ services:
       - SYS_MODULE
     environment:
       - INIT_ENABLED=true
-      - INIT_HOST=178.105.64.108
+      - INIT_HOST=localhost
       - INIT_PORT=51820
-      - INIT_USERNAME=testtest
-      - INIT_PASSWORD=Qweasdyxcv!2
+      - INIT_USERNAME=admin
+      - INIT_PASSWORD=changeme
       - DEBUG=Database
 
 # folders should be generated inside container

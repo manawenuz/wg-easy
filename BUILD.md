@@ -12,15 +12,15 @@ want to build it yourself, **[Deploy from source](#deploy-from-source)**.
 
 ## Quickstart (host requirements)
 
-| Requirement                | Why                                                                   |
-|----------------------------|-----------------------------------------------------------------------|
-| Linux host with Docker     | Container runtime for wg-easy + sidecar.                              |
-| `network_mode: host`       | wg-easy manages WG interfaces on the host's network namespace.        |
-| `cap_add: NET_ADMIN`       | iptables/nft, interface bring-up.                                     |
-| `cap_add: SYS_MODULE`      | Loads the WireGuard kernel module if not already loaded.              |
-| `devices: /dev/net/tun`    | Required for AmneziaWG / userspace fallback (`amneziawg-go`/`wireguard-go`). |
-| `iptables-nft` on the host | Default on Ubuntu 22+, Debian 12+. The image itself uses `iptables-nft`; if your host runs `iptables-legacy`, see [iptables backend](#iptables-backend). |
-| Public UDP port (default 51820) | WireGuard listen port. Open it in your edge firewall and forward to the wg-easy host if behind NAT. |
+| Requirement                     | Why                                                                                                                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux host with Docker          | Container runtime for wg-easy + sidecar.                                                                                                                 |
+| `network_mode: host`            | wg-easy manages WG interfaces on the host's network namespace.                                                                                           |
+| `cap_add: NET_ADMIN`            | iptables/nft, interface bring-up.                                                                                                                        |
+| `cap_add: SYS_MODULE`           | Loads the WireGuard kernel module if not already loaded.                                                                                                 |
+| `devices: /dev/net/tun`         | Required for AmneziaWG / userspace fallback (`amneziawg-go`/`wireguard-go`).                                                                             |
+| `iptables-nft` on the host      | Default on Ubuntu 22+, Debian 12+. The image itself uses `iptables-nft`; if your host runs `iptables-legacy`, see [iptables backend](#iptables-backend). |
+| Public UDP port (default 51820) | WireGuard listen port. Open it in your edge firewall and forward to the wg-easy host if behind NAT.                                                      |
 
 UDP 51821 (HTTP UI) is local-only by default. Put HTTPS in front of it for
 remote admin (Caddy / nginx-proxy-manager / Cloudflare Tunnel).
@@ -35,22 +35,23 @@ The fork's image is published as
 # default — for ghcr replace the image: line as below)
 services:
   wg-easy:
-    image: ghcr.io/manawenuz/wg-easy-fork:edge   # or :latest, :v15.x.y
+    image: ghcr.io/manawenuz/wg-easy-fork:edge # or :latest, :v15.x.y
     # ...rest unchanged
 ```
 
 Tags published:
 
-| Tag                | When                                      |
-|--------------------|-------------------------------------------|
-| `edge`             | Every push to `master`                    |
-| `vX.Y.Z`, `latest` | Every `git tag -a vX.Y.Z` push            |
-| `sha-<short>`      | Every commit                              |
-| `manual-<sha>`     | Manual `workflow_dispatch` runs           |
+| Tag                | When                            |
+| ------------------ | ------------------------------- |
+| `edge`             | Every push to `master`          |
+| `vX.Y.Z`, `latest` | Every `git tag -a vX.Y.Z` push  |
+| `sha-<short>`      | Every commit                    |
+| `manual-<sha>`     | Manual `workflow_dispatch` runs |
 
 Architectures: `linux/amd64` and `linux/arm64`. Build via the
 [`Fork Image (ghcr)`](.github/workflows/fork-image.yml) GitHub Actions
-workflow on push or via manual dispatch.
+workflow on push or via manual dispatch. The workflow is fork-only, uses
+Node 24-compatible action majors, and publishes `edge` from `master`.
 
 ## Deploy from source
 
@@ -83,6 +84,7 @@ docker compose -f docker-compose.amnezia.yml up -d
 ```
 
 This variant:
+
 - Uses the ghcr.io published image (same as `docker-compose.yml`)
 - Includes the wg-obfuscator sidecar pre-configured for host-side obfuscation
 - Mounts `/var/run/docker.sock` for automatic obfuscator reload
@@ -103,10 +105,10 @@ The default compose ships **two** services:
 
 ### Volumes
 
-| Volume                | Mounts to (wg-easy)             | Mounts to (sidecar)        | Purpose                         |
-|-----------------------|---------------------------------|----------------------------|---------------------------------|
-| `etc_wireguard`       | `/etc/wireguard`                | —                          | DB + per-interface wg config    |
-| `obfuscator_config`   | `/etc/wireguard/obfuscator`     | `/etc/wg-obfuscator:ro`    | Generated obfuscator configs    |
+| Volume              | Mounts to (wg-easy)         | Mounts to (sidecar)     | Purpose                      |
+| ------------------- | --------------------------- | ----------------------- | ---------------------------- |
+| `etc_wireguard`     | `/etc/wireguard`            | —                       | DB + per-interface wg config |
+| `obfuscator_config` | `/etc/wireguard/obfuscator` | `/etc/wg-obfuscator:ro` | Generated obfuscator configs |
 
 ### Devices and caps
 
@@ -119,7 +121,7 @@ The default compose ships **two** services:
 
 ```yaml
 environment:
-  - INSECURE=true                       # serve HTTP on :51821 (use HTTPS via reverse proxy)
+  - INSECURE=true # serve HTTP on :51821 (use HTTPS via reverse proxy)
   - DEBUG=Server,WireGuard,Database,CMD,MikroTik,HostObfuscator,AmneziaWG
   - HOST_OBFUSCATOR_CONFIG_DIR=/etc/wireguard/obfuscator
   # Optional: SIGHUP-style reload after config changes (requires docker.sock mount)
@@ -237,7 +239,7 @@ Almost always one of three things:
    wg-easy's hooks land in the other, the kernel filter chain has
    `policy drop` and your forwarded packets disappear.
    - Fix: keep the default. Override only if your host genuinely uses
-     `iptables-legacy` *and* Docker matches it. See
+     `iptables-legacy` _and_ Docker matches it. See
      [iptables backend](#iptables-backend).
 2. **Wrong egress device.** wg-easy's hooks template `{{device}}` into
    `MASQUERADE -o <dev>`. Default is `eth0`. If your host's default route

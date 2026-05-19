@@ -1,8 +1,17 @@
 import { createHash, createPublicKey } from 'node:crypto';
-import { connect, type ConnectionOptions, type PeerCertificate } from 'node:tls';
+import {
+  connect,
+  type ConnectionOptions,
+  type PeerCertificate,
+} from 'node:tls';
+
+const REJECT_UNAUTHORIZED_FOR_FINGERPRINT_FETCH = false;
 
 export class TlsPinError extends Error {
-  constructor(public readonly expected: string, public readonly actual: string) {
+  constructor(
+    public readonly expected: string,
+    public readonly actual: string
+  ) {
     super(`TLS Pin Mismatch! Expected: ${expected}, Actual: ${actual}`);
     this.name = 'TlsPinError';
   }
@@ -44,13 +53,19 @@ export async function getServerFingerprint(
   host: string,
   port: number,
   options?: ConnectionOptions
-): Promise<{ leaf: string; spki: string; subject: any; validTo: string }> {
+): Promise<{
+  leaf: string;
+  spki: string;
+  subject: PeerCertificate['subject'];
+  validTo: string;
+}> {
   return new Promise((resolve, reject) => {
     const socket = connect(
       {
         host,
         port,
-        rejectUnauthorized: false, // We want to see the cert even if self-signed
+        // This endpoint intentionally retrieves the presented certificate for SPKI/leaf pin setup.
+        rejectUnauthorized: REJECT_UNAUTHORIZED_FOR_FINGERPRINT_FETCH,
         ...options,
       },
       () => {

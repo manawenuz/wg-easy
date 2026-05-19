@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fork Maintenance
+
+- Updated the fork-only `Fork Image (ghcr)` workflow to the current Node 24-compatible action majors used by upstream workflows, removing GitHub's Node.js 20 action deprecation warning.
+- Hardened router credential encryption by explicitly requiring 128-bit AES-GCM auth tags during encryption and decryption.
+- Removed tracked WireGuard runtime config from `data/wireguard/wg0.conf` and ignored generated WireGuard config files.
+- Replaced concrete development compose init credentials with placeholders.
+- Enforced router ACL scoping on router lists, interface lists, admin usage, router mutations, and client speed-limit/usage routes.
+- Repaired fork unit tests for RouterOS API transport mocks and BoringTun host-path assumptions; the unit suite currently passes with 292 tests and 1 skipped test.
+
 ### Fork: Multi-Engine Control Plane
 
 #### Phase 0 — Foundation (`b1071fc`)
@@ -56,7 +65,7 @@ Replaced the monolithic `WireGuard.ts` utility with a proper `VpnEngine` abstrac
 #### Known Gaps
 
 - **MikroTik engine is untested with live hardware** — unit tests and logic review pass, but no end-to-end verification against a real RouterOS device
-- **MikroTik TLS fingerprint pinning (TOFU)** is not implemented; connects to any TLS-enabled RouterOS API without certificate verification
+- **MikroTik live hardware coverage** remains limited; RouterOS SSH/API unit tests pass, but only targeted UAT has been run against live devices
 - **MikroTik obfuscation** `generateClientObfuscatorConfig()` is implemented in the engine but not wired into client config download routes
 - **i18n** — many dashboard and engine capability keys are missing from non-English locales
 - **Per-peer AmneziaWG parameter overrides** in the UI were punted; parameters are currently shared via interface-level defaults
