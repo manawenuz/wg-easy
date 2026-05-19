@@ -8,8 +8,6 @@ const SpeedLimitPutSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'client:write');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({
@@ -29,6 +27,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Client not found',
     });
   }
+  await requireClientPermission(event, 'client:write', client);
 
   const result = await setSpeedLimit(id, body.upKbps, body.downKbps);
 

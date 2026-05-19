@@ -1,9 +1,11 @@
 import { getEngineMetadata } from '../../../engines/metadata';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'router:read');
+  const allowedRouterIds = await getAllowedRouterIds(event, 'router:read');
 
-  const routers = await Database.routers.getAll();
+  const routers = (await Database.routers.getAll()).filter(
+    (router) => allowedRouterIds === null || allowedRouterIds.has(router.id)
+  );
   const engines = await getEngineMetadata();
 
   return routers.map((r) => {

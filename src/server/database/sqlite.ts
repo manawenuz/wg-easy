@@ -3,7 +3,6 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/libsql/migrator';
 import { createClient } from '@libsql/client';
 import { createDebug } from 'obug';
 import { eq } from 'drizzle-orm';
-import { roles } from '#shared/utils/permissions';
 import { encrypt } from '../utils/crypto';
 import { MIKROTIK_DEFAULT_ENV } from '../utils/config';
 
@@ -27,10 +26,13 @@ import { ApiTokenService } from './repositories/apiToken/service';
 import { WgObfuscatorConfigService } from './repositories/wgObfuscatorConfig/service';
 import { PendingMutationService } from './repositories/pendingMutation/service';
 import { TrafficGroupService } from './repositories/trafficGroup/service';
+import { roles } from '#shared/utils/permissions';
 
 const DB_DEBUG = createDebug('Database');
 
-const client = createClient({ url: process.env.DATABASE_URL || 'file:/etc/wireguard/wg-easy.db' });
+const client = createClient({
+  url: process.env.DATABASE_URL || 'file:/etc/wireguard/wg-easy.db',
+});
 const db = drizzle({ client, schema });
 
 export async function connect() {
@@ -172,7 +174,9 @@ async function seedDefaultMikrotikRouter(db: DBServiceType) {
 
   const existing = await db.routers.getAll();
   if (existing.some((r) => r.name === MIKROTIK_DEFAULT_ENV.NAME)) {
-    DB_DEBUG(`Default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' already present, skipping seed.`);
+    DB_DEBUG(
+      `Default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' already present, skipping seed.`
+    );
     return;
   }
 
@@ -180,7 +184,8 @@ async function seedDefaultMikrotikRouter(db: DBServiceType) {
   const isSsh = transport === 'ssh';
   const port = MIKROTIK_DEFAULT_ENV.PORT ?? (isSsh ? 22 : null);
   const apiPort =
-    MIKROTIK_DEFAULT_ENV.API_PORT ?? (MIKROTIK_DEFAULT_ENV.TLS_REQUIRED ? 8729 : 8728);
+    MIKROTIK_DEFAULT_ENV.API_PORT ??
+    (MIKROTIK_DEFAULT_ENV.TLS_REQUIRED ? 8729 : 8728);
 
   const sshKeyB64 = MIKROTIK_DEFAULT_ENV.SSH_KEY
     ? Buffer.from(MIKROTIK_DEFAULT_ENV.SSH_KEY, 'utf8').toString('base64')
@@ -208,7 +213,9 @@ async function seedDefaultMikrotikRouter(db: DBServiceType) {
     return;
   }
 
-  DB_DEBUG(`Seeding default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' at ${MIKROTIK_DEFAULT_ENV.HOST} via ${transport}`);
+  DB_DEBUG(
+    `Seeding default MikroTik router '${MIKROTIK_DEFAULT_ENV.NAME}' at ${MIKROTIK_DEFAULT_ENV.HOST} via ${transport}`
+  );
 
   const sshPassphraseEncrypted = MIKROTIK_DEFAULT_ENV.SSH_PASSPHRASE
     ? encrypt(MIKROTIK_DEFAULT_ENV.SSH_PASSPHRASE)
@@ -227,6 +234,9 @@ async function seedDefaultMikrotikRouter(db: DBServiceType) {
     sshPassphraseEncrypted,
     enabled: true,
     lastSeen: null,
+    lastSeenOkAt: null,
+    lastSeenError: null,
+    consecutiveFailures: 0,
   });
 }
 
@@ -236,7 +246,10 @@ async function migrateAwgEngineType(db: DBServiceType) {
     const iface = await db.interfaces.get().catch(() => null);
     if (iface && iface.engineType === 'wireguard') {
       DB_DEBUG('Migrating interface from wireguard to amneziawg engine...');
-      await db.interfaces.update({ engineType: 'amneziawg' });
+      await db.interfaces.update({
+        ...iface,
+        engineType: 'amneziawg',
+      });
       DB_DEBUG('Migration complete');
     }
   }

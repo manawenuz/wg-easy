@@ -1,7 +1,7 @@
 import { createError } from 'h3';
 import type { H3Event } from 'h3';
-import { roles } from '#shared/utils/permissions';
 import type { Principal } from './principal';
+import { roles } from '#shared/utils/permissions';
 
 export type Permission =
   | 'router:read'
@@ -126,6 +126,43 @@ export async function requirePermission(
       });
     }
   }
+}
+
+function aclAllows(
+  aclPermission: 'read' | 'write' | 'admin',
+  perm: Permission
+): boolean {
+  if (perm.endsWith(':admin')) return aclPermission === 'admin';
+  if (perm.endsWith(':write')) return aclPermission !== 'read';
+  return true;
+}
+
+export async function getAllowedRouterIds(
+  event: H3Event,
+  perm: Extract<Permission, `router:${string}` | `client:${string}`>
+): Promise<Set<number> | null> {
+  await requirePermission(event, perm);
+
+  const p = event.context.principal;
+  if (!p || p.kind === 'user' || p.user.role === roles.SUPERADMIN) {
+    return null;
+  }
+
+  const acls = await Database.adminRouterAcls.getByUserId(p.user.id);
+  return new Set(
+    acls
+      .filter((acl) => aclAllows(acl.permission, perm))
+      .map((acl) => acl.routerId)
+  );
+}
+
+export async function requireClientPermission(
+  event: H3Event,
+  perm: Extract<Permission, `client:${string}`>,
+  client: { interfaceId: string }
+): Promise<void> {
+  const iface = await Database.interfaces.get(client.interfaceId);
+  await requirePermission(event, perm, { routerId: iface.routerId });
 }
 
 export function isAdminPrincipal(p: Principal | null): boolean {

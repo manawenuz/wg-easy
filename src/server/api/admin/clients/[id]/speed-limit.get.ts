@@ -1,6 +1,4 @@
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'client:read');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({
@@ -16,6 +14,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Client not found',
     });
   }
+  await requireClientPermission(event, 'client:read', client);
 
   const limit = await Database.speedLimits.getByClientId(id);
   if (!limit) {

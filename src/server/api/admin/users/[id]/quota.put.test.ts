@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 describe('admin/users/[id]/quota.put', () => {
-  const mockUser = (id: number, role: number, parentUserId: number | null = null) => ({
+  const mockUser = (
+    id: number,
+    role: number,
+    parentUserId: number | null = null
+  ) => ({
     id,
     username: `user${id}`,
     name: `User ${id}`,
@@ -27,18 +31,40 @@ describe('admin/users/[id]/quota.put', () => {
     params: { id: string },
     body: object
   ) =>
-    ({ context: { principal }, _params: params, _body: body }) as Parameters<Handler>[0];
+    ({
+      context: { principal },
+      _params: params,
+      _body: body,
+    }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
-    vi.stubGlobal('readValidatedBody', vi.fn(async (event: { _body: object }) => event._body));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
+    vi.stubGlobal(
+      'readValidatedBody',
+      vi.fn(async (event: { _body: object }) => event._body)
+    );
   });
 
   beforeEach(() => {
@@ -68,14 +94,17 @@ describe('admin/users/[id]/quota.put', () => {
         create: vi.fn(async () => {}),
       },
     });
-    vi.stubGlobal('logAction', vi.fn(async () => {}));
+    vi.stubGlobal(
+      'logAction',
+      vi.fn(async () => {})
+    );
     vi.stubGlobal('quotaService', {
       setForUser: vi.fn(async () => {}),
     });
   });
 
   it('creates quota for new root user', async () => {
-    const handler = (await import('./quota.put')).default as Handler;
+    const handler = (await import('./quota.put')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '2' },
@@ -87,7 +116,7 @@ describe('admin/users/[id]/quota.put', () => {
   });
 
   it('updates existing quota for root user', async () => {
-    const handler = (await import('./quota.put')).default as Handler;
+    const handler = (await import('./quota.put')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' },
@@ -99,7 +128,7 @@ describe('admin/users/[id]/quota.put', () => {
   });
 
   it('returns 409 for sub-account', async () => {
-    const handler = (await import('./quota.put')).default as Handler;
+    const handler = (await import('./quota.put')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '3' },
@@ -111,7 +140,7 @@ describe('admin/users/[id]/quota.put', () => {
   });
 
   it('returns 404 for nonexistent user', async () => {
-    const handler = (await import('./quota.put')).default as Handler;
+    const handler = (await import('./quota.put')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' },

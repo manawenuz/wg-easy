@@ -23,18 +23,36 @@ describe('admin/clients/[id]/speed-limit.delete', () => {
   const makeEvent = (
     principal: { kind: string; user: ReturnType<typeof mockUser> },
     params: { id: string }
-  ) =>
-    ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
+  ) => ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'requireClientPermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
   });
 
   beforeEach(() => {
@@ -45,7 +63,9 @@ describe('admin/clients/[id]/speed-limit.delete', () => {
           if (id === 1) return { id: 1, name: 'client1', publicKey: 'pk1' };
           return undefined;
         }),
-        getAll: vi.fn(async () => [{ id: 1, name: 'client1', publicKey: 'pk1' }]),
+        getAll: vi.fn(async () => [
+          { id: 1, name: 'client1', publicKey: 'pk1' },
+        ]),
       },
       interfaces: {
         get: vi.fn(async () => ({ name: 'wg0', engineType: 'wireguard' })),
@@ -57,17 +77,24 @@ describe('admin/clients/[id]/speed-limit.delete', () => {
         create: vi.fn(async () => {}),
       },
     });
-    vi.stubGlobal('logAction', vi.fn(async () => {}));
+    vi.stubGlobal(
+      'logAction',
+      vi.fn(async () => {})
+    );
 
     const mockEngine = {
       capabilities: { speedLimit: 'engine-native' },
       clearSpeedLimit: vi.fn(async () => {}),
     };
-    vi.stubGlobal('getEngine', vi.fn(() => mockEngine));
+    vi.stubGlobal(
+      'getEngine',
+      vi.fn(() => mockEngine)
+    );
   });
 
   it('deletes speed limit for client', async () => {
-    const handler = (await import('./speed-limit.delete')).default as Handler;
+    const handler = (await import('./speed-limit.delete'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' }
@@ -78,7 +105,8 @@ describe('admin/clients/[id]/speed-limit.delete', () => {
   });
 
   it('returns 404 for nonexistent client', async () => {
-    const handler = (await import('./speed-limit.delete')).default as Handler;
+    const handler = (await import('./speed-limit.delete'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' }

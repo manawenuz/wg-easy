@@ -7,12 +7,14 @@ const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockClose = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('./routeros-api-protocol', () => ({
-  RouterOsApiProtocol: vi.fn().mockImplementation(() => ({
-    connect: mockConnect,
-    login: mockLogin,
-    send: mockSend,
-    close: mockClose,
-  })),
+  RouterOsApiProtocol: vi.fn().mockImplementation(function () {
+    return {
+      connect: mockConnect,
+      login: mockLogin,
+      send: mockSend,
+      close: mockClose,
+    };
+  }),
 }));
 
 vi.mock('./tls-pin', () => ({

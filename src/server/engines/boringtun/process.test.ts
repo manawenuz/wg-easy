@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
+import { existsSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BoringtunProcessManager } from './process';
 
@@ -12,6 +13,10 @@ vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
   access: vi.fn().mockResolvedValue(undefined),
   unlink: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(),
 }));
 
 vi.mock('../../utils/cmd', () => ({
@@ -38,7 +43,10 @@ describe('BoringtunProcessManager', () => {
       removeAllListeners: vi.fn(),
     });
 
-    vi.mocked(spawn).mockReturnValue(mockProc as unknown as ReturnType<typeof spawn>);
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(spawn).mockReturnValue(
+      mockProc as unknown as ReturnType<typeof spawn>
+    );
   });
 
   afterEach(() => {
@@ -60,7 +68,11 @@ describe('BoringtunProcessManager', () => {
   });
 
   it('stops boringtun-cli and removes from tracking', async () => {
-    manager['processes'].set('wg0', mockProc as unknown as ReturnType<typeof spawn>);
+    manager['processes'].set(
+      'wg0',
+      mockProc as unknown as ReturnType<typeof spawn>
+    );
+    vi.mocked(existsSync).mockReturnValue(false);
     await manager.stop('wg0');
 
     expect(mockProc.removeAllListeners).toHaveBeenCalledWith('exit');

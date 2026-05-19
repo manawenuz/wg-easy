@@ -181,7 +181,7 @@ export function hasPermissions<Resource extends keyof Permissions>(
 }
 
 export function hasPermissionsWithData<Resource extends keyof Permissions>(
-  user: UserType,
+  user: SharedUserType,
   resource: Resource,
   action: Permissions[Resource]['action']
 ) {

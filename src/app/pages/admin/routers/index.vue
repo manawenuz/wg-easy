@@ -20,14 +20,18 @@
               :label="t('general.host')"
             />
             <div>
-              <label class="mb-1 block text-sm font-medium">{{ t('admin.routers.engineType') }}</label>
+              <label class="mb-1 block text-sm font-medium">{{
+                t('admin.routers.engineType')
+              }}</label>
               <BaseSelect
                 v-model="newRouter.engineType"
                 :options="engineOptions"
               />
             </div>
             <div>
-              <label class="mb-1 block text-sm font-medium">{{ t('admin.routers.transport') }}</label>
+              <label class="mb-1 block text-sm font-medium">{{
+                t('admin.routers.transport')
+              }}</label>
               <BaseSelect
                 v-model="connectionMode"
                 :options="connectionModeOptions"
@@ -55,20 +59,29 @@
                   :label="t('admin.routers.apiPassword')"
                   autocomplete="new-password"
                 />
-                <BaseSecondaryButton class="px-3" @click="newRouter.apiPassword = generatePassword()">
+                <BaseSecondaryButton
+                  class="px-3"
+                  @click="newRouter.apiPassword = generatePassword()"
+                >
                   {{ t('admin.routers.regenerate') }}
                 </BaseSecondaryButton>
               </div>
-              <p v-if="!tlsRequired" class="text-xs text-amber-600 dark:text-amber-400">
+              <p
+                v-if="!tlsRequired"
+                class="text-xs text-amber-600 dark:text-amber-400"
+              >
                 {{ t('admin.routers.tlsWarningPlaintext') }}
               </p>
               <div v-if="tlsRequired" class="flex flex-col gap-1">
-                <label class="text-sm font-medium">{{ t('admin.routers.fingerprint') }}</label>
+                <label class="text-sm font-medium">{{
+                  t('admin.routers.fingerprint')
+                }}</label>
                 <div class="flex gap-2">
                   <FormTextField
                     id="tlsFingerprintSha256"
                     v-model="newRouter.tlsFingerprintSha256"
                     class="flex-1"
+                    :label="t('admin.routers.fingerprint')"
                     :placeholder="t('admin.routers.fingerprintPlaceholder')"
                   />
                   <BaseSecondaryButton class="px-3" @click="fetchFingerprint">
@@ -84,7 +97,9 @@
                 :label="t('admin.routers.sshUser')"
               />
               <div class="flex flex-col gap-1">
-                <label class="text-sm font-medium">{{ t('admin.routers.sshKey') }}</label>
+                <label class="text-sm font-medium">{{
+                  t('admin.routers.sshKey')
+                }}</label>
                 <div class="flex gap-2">
                   <input
                     ref="sshKeyFileInput"
@@ -93,10 +108,15 @@
                     accept=".pem,.key,id_rsa,id_ed25519,*"
                     @change="onSshKeyFile"
                   />
-                  <BaseSecondaryButton class="px-3" @click="(sshKeyFileInput as any)?.click()">
+                  <BaseSecondaryButton
+                    class="px-3"
+                    @click="(sshKeyFileInput as any)?.click()"
+                  >
                     {{ t('admin.routers.sshKeyChoose') }}
                   </BaseSecondaryButton>
-                  <span class="self-center text-xs text-gray-500 dark:text-neutral-400">
+                  <span
+                    class="self-center text-xs text-gray-500 dark:text-neutral-400"
+                  >
                     {{ sshKeyStatus }}
                   </span>
                 </div>
@@ -121,19 +141,30 @@
               />
             </template>
 
-            <details class="mt-2 rounded border border-gray-200 p-3 dark:border-neutral-500">
+            <details
+              class="mt-2 rounded border border-gray-200 p-3 dark:border-neutral-500"
+            >
               <summary class="cursor-pointer text-sm font-medium">
                 {{ t('admin.routers.helperTitle') }}
               </summary>
               <p class="mt-2 text-xs text-gray-600 dark:text-neutral-300">
                 {{ t('admin.routers.helperDesc') }}
               </p>
-              <pre class="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-2 text-[11px] leading-snug dark:bg-neutral-800">{{ rscScript }}</pre>
+              <pre
+                class="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-2 text-[11px] leading-snug dark:bg-neutral-800"
+                >{{ rscScript }}</pre
+              >
               <div class="mt-2 flex flex-wrap gap-2">
-                <BaseSecondaryButton class="px-3 py-1 text-xs" @click="downloadRsc">
+                <BaseSecondaryButton
+                  class="px-3 py-1 text-xs"
+                  @click="downloadRsc"
+                >
                   {{ t('admin.routers.rscDownload') }}
                 </BaseSecondaryButton>
-                <BaseSecondaryButton class="px-3 py-1 text-xs" @click="copyHelper">
+                <BaseSecondaryButton
+                  class="px-3 py-1 text-xs"
+                  @click="copyHelper"
+                >
                   {{ t('admin.routers.helperCopy') }}
                 </BaseSecondaryButton>
               </div>
@@ -148,7 +179,9 @@
             <BaseSecondaryButton>{{ t('dialog.cancel') }}</BaseSecondaryButton>
           </DialogClose>
           <DialogClose as-child>
-            <BasePrimaryButton @click="createRouter">{{ t('form.save') }}</BasePrimaryButton>
+            <BasePrimaryButton @click="createRouter">{{
+              t('form.save')
+            }}</BasePrimaryButton>
           </DialogClose>
         </template>
       </BaseDialog>
@@ -161,7 +194,11 @@
     >
       <div class="h-10 bg-gray-50 dark:bg-neutral-800" />
       <div class="divide-y divide-gray-100 dark:divide-neutral-600">
-        <div v-for="n in 3" :key="n" class="h-12 bg-white dark:bg-neutral-700" />
+        <div
+          v-for="n in 3"
+          :key="n"
+          class="h-12 bg-white dark:bg-neutral-700"
+        />
       </div>
     </div>
 
@@ -218,17 +255,33 @@
                 <!-- Health dot (only meaningful when enabled) -->
                 <span
                   v-if="r.enabled"
-                  :title="r.lastSeenError ?? (r.lastSeenOkAt ? `Last OK: ${new Date(r.lastSeenOkAt).toLocaleString()}` : 'No data yet')"
+                  :title="
+                    r.lastSeenError ??
+                    (r.lastSeenOkAt
+                      ? `Last OK: ${new Date(r.lastSeenOkAt).toLocaleString()}`
+                      : 'No data yet')
+                  "
                   :class="[
                     'inline-block h-2.5 w-2.5 rounded-full',
-                    r.consecutiveFailures === 0 && r.lastSeenOkAt ? 'bg-green-500' :
-                    r.consecutiveFailures <= 2 ? 'bg-yellow-400' : 'bg-red-500'
+                    r.consecutiveFailures === 0 && r.lastSeenOkAt
+                      ? 'bg-green-500'
+                      : r.consecutiveFailures <= 2
+                        ? 'bg-yellow-400'
+                        : 'bg-red-500',
                   ]"
                 />
                 <span
-                  :class="r.enabled ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                  :class="
+                    r.enabled
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  "
                 >
-                  {{ r.enabled ? t('admin.routers.enabled') : t('admin.routers.disabled') }}
+                  {{
+                    r.enabled
+                      ? t('admin.routers.enabled')
+                      : t('admin.routers.disabled')
+                  }}
                 </span>
               </div>
             </td>
@@ -268,6 +321,16 @@
 const { t } = useI18n();
 const toast = useToast();
 
+function errorMessage(error: unknown, fallback: string): string {
+  const err = error as {
+    data?: { statusMessage?: string; message?: string };
+    message?: string;
+  };
+  return (
+    err.data?.statusMessage || err.data?.message || err.message || fallback
+  );
+}
+
 interface RouterItem {
   id: number;
   name: string;
@@ -275,27 +338,36 @@ interface RouterItem {
   port: number | null;
   engineType: string;
   transport: string;
+  dockerized?: boolean;
   enabled: boolean;
   consecutiveFailures: number;
   lastSeenOkAt: string | null;
   lastSeenError: string | null;
 }
 
-const { data, refresh, pending, error } = await useFetch<RouterItem[]>('/api/admin/router', { method: 'get' });
+const { data, refresh, pending, error } = await useFetch<RouterItem[]>(
+  '/api/admin/router',
+  { method: 'get' }
+);
 
-const { data: activeInterface, refresh: refreshIface } = await useFetch<{ routerId: number }>('/api/admin/interface', { method: 'get' });
+const { data: activeInterface, refresh: refreshIface } = await useFetch<{
+  routerId: number;
+}>('/api/admin/interface', { method: 'get' });
 const activeRouterId = computed(() => activeInterface.value?.routerId ?? 0);
 
 async function activateRouter(r: RouterItem) {
   if (!confirm(t('admin.routers.activateConfirm', { name: r.name }))) return;
   try {
     await $fetch(`/api/admin/router/${r.id}/activate`, { method: 'post' });
-    toast.showToast({ type: 'success', message: t('admin.routers.activateSuccess', { name: r.name }) });
+    toast.showToast({
+      type: 'success',
+      message: t('admin.routers.activateSuccess', { name: r.name }),
+    });
     await refreshIface();
-  } catch (e: any) {
+  } catch (e: unknown) {
     toast.showToast({
       type: 'error',
-      message: e?.data?.statusMessage || e?.message || t('admin.routers.activateFailed'),
+      message: errorMessage(e, t('admin.routers.activateFailed')),
     });
   }
 }
@@ -312,14 +384,16 @@ watch(error, (err) => {
 type ConnectionMode = 'api-tls' | 'api-plain' | 'ssh';
 
 function generatePassword(len = 24): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%^*-_';
+  const alphabet =
+    'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%^*-_';
   if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
     const bytes = new Uint32Array(len);
     window.crypto.getRandomValues(bytes);
     return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
   }
   let out = '';
-  for (let i = 0; i < len; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let i = 0; i < len; i++)
+    out += alphabet[Math.floor(Math.random() * alphabet.length)];
   return out;
 }
 
@@ -394,8 +468,10 @@ const connectionModeOptions = computed(() => [
 ]);
 
 const connectionModeHelp = computed(() => {
-  if (connectionMode.value === 'api-tls') return t('admin.routers.modeApiTlsHelp');
-  if (connectionMode.value === 'api-plain') return t('admin.routers.modeApiPlainHelp');
+  if (connectionMode.value === 'api-tls')
+    return t('admin.routers.modeApiTlsHelp');
+  if (connectionMode.value === 'api-plain')
+    return t('admin.routers.modeApiPlainHelp');
   return t('admin.routers.modeSshHelp');
 });
 
@@ -420,7 +496,7 @@ const rscScript = computed(() => {
     '',
     '# --- 1) Group with least-privilege policies ---',
     '/user/group',
-    ':if ([:len [find name=wg-easy]] > 0) do={ remove [find name=wg-easy] }',
+    `:if ([:len [find name=${user}]] > 0) do={ remove [find name=${user}] }`,
     'add name=wg-easy policy=read,write,test,api,ssh,sensitive comment="wg-easy automation"',
     '',
     '# --- 2) User ---',
@@ -430,14 +506,16 @@ const rscScript = computed(() => {
 
   if (isSshMode) {
     lines.push(
-      `add name=wg-easy group=wg-easy password="${password}" comment="wg-easy SSH"`,
+      `add name=${user} group=wg-easy password="${password}" comment="wg-easy SSH"`,
       '# Note: SSH key import requires uploading the .pub key to Files first',
       '# (Winbox -> Files -> drag-drop "wg-easy.pub"), then run:',
-      '#   /user/ssh-keys/import public-key-file=wg-easy.pub user=wg-easy',
-      '# Until then, password auth above is used.',
+      `#   /user/ssh-keys/import public-key-file=wg-easy.pub user=${user}`,
+      '# Until then, password auth above is used.'
     );
   } else {
-    lines.push(`add name=wg-easy group=wg-easy password="${password}" comment="wg-easy API"`);
+    lines.push(
+      `add name=${user} group=wg-easy password="${password}" comment="wg-easy API"`
+    );
   }
 
   lines.push(
@@ -454,7 +532,7 @@ const rscScript = computed(() => {
     '}',
     '',
     '# --- 4) Services ---',
-    '/ip/service',
+    '/ip/service'
   );
 
   if (mode === 'api-tls') {
@@ -462,18 +540,18 @@ const rscScript = computed(() => {
       'set [find name=api-ssl] certificate=api-ssl-server',
       `set [find name=api-ssl] port=${apiPort}`,
       'set [find name=api-ssl] disabled=no',
-      'set [find name=api] disabled=yes',
+      'set [find name=api] disabled=yes'
     );
   } else if (mode === 'api-plain') {
     lines.push(
       `set [find name=api] port=${apiPort}`,
       'set [find name=api] disabled=no',
-      'set [find name=api-ssl] disabled=yes',
+      'set [find name=api-ssl] disabled=yes'
     );
   } else {
     lines.push(
       `set [find name=ssh] port=${sshPort}`,
-      'set [find name=ssh] disabled=no',
+      'set [find name=ssh] disabled=no'
     );
   }
 
@@ -481,20 +559,20 @@ const rscScript = computed(() => {
     '',
     '# --- 5) Firewall: allow wg-easy to reach the management port ---',
     '# Adjust src-address=<wg-easy host or subnet> to lock this down.',
-    '/ip/firewall/filter',
+    '/ip/firewall/filter'
   );
 
   if (mode === 'api-tls') {
     lines.push(
-      `:if ([:len [find comment="wg-easy: api-ssl"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${apiPort} comment="wg-easy: api-ssl" place-before=0 }`,
+      `:if ([:len [find comment="wg-easy: api-ssl"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${apiPort} comment="wg-easy: api-ssl" place-before=0 }`
     );
   } else if (mode === 'api-plain') {
     lines.push(
-      `:if ([:len [find comment="wg-easy: api"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${apiPort} comment="wg-easy: api" place-before=0 }`,
+      `:if ([:len [find comment="wg-easy: api"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${apiPort} comment="wg-easy: api" place-before=0 }`
     );
   } else {
     lines.push(
-      `:if ([:len [find comment="wg-easy: ssh"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${sshPort} comment="wg-easy: ssh" place-before=0 }`,
+      `:if ([:len [find comment="wg-easy: ssh"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${sshPort} comment="wg-easy: ssh" place-before=0 }`
     );
   }
 
@@ -520,7 +598,7 @@ const rscScript = computed(() => {
     '',
     ':put "wg-easy bootstrap complete."',
     `:put "User=wg-easy  ${isSshMode ? `SSH-port=${sshPort}` : `API-port=${apiPort} (mode=${mode})`}"`,
-    ':put "Now go to wg-easy -> Routers -> Test Connection."',
+    ':put "Now go to wg-easy -> Routers -> Test Connection."'
   );
 
   return lines.join('\n');
@@ -531,7 +609,10 @@ function downloadRsc() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const safeName = (newRouter.value.name || 'wg-easy').replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const safeName = (newRouter.value.name || 'wg-easy').replace(
+    /[^a-zA-Z0-9_.-]/g,
+    '_'
+  );
   a.download = `${safeName}-bootstrap.rsc`;
   document.body.appendChild(a);
   a.click();
@@ -542,15 +623,24 @@ function downloadRsc() {
 async function copyHelper() {
   try {
     await navigator.clipboard.writeText(rscScript.value);
-    toast.showToast({ type: 'success', message: t('admin.routers.helperCopied') });
+    toast.showToast({
+      type: 'success',
+      message: t('admin.routers.helperCopied'),
+    });
   } catch {
-    toast.showToast({ type: 'error', message: t('admin.routers.helperCopyFailed') });
+    toast.showToast({
+      type: 'error',
+      message: t('admin.routers.helperCopyFailed'),
+    });
   }
 }
 
 async function fetchFingerprint() {
   if (!newRouter.value.host) {
-    toast.showToast({ type: 'error', message: t('admin.routers.hostRequired') });
+    toast.showToast({
+      type: 'error',
+      message: t('admin.routers.hostRequired'),
+    });
     return;
   }
   try {
@@ -562,11 +652,14 @@ async function fetchFingerprint() {
       },
     });
     newRouter.value.tlsFingerprintSha256 = res.spki;
-    toast.showToast({ type: 'success', message: t('admin.routers.testSuccess') });
-  } catch (e: any) {
+    toast.showToast({
+      type: 'success',
+      message: t('admin.routers.testSuccess'),
+    });
+  } catch (e: unknown) {
     toast.showToast({
       type: 'error',
-      message: e?.data?.statusMessage || e?.message || t('admin.routers.testFailed'),
+      message: errorMessage(e, t('admin.routers.testFailed')),
     });
   }
 }
@@ -597,9 +690,13 @@ async function createRouter() {
         credentials: {
           apiUser: isSsh.value ? undefined : newRouter.value.apiUser,
           apiPassword: newRouter.value.apiPassword || undefined,
-          sshUser: isSsh.value ? newRouter.value.sshUser || undefined : undefined,
+          sshUser: isSsh.value
+            ? newRouter.value.sshUser || undefined
+            : undefined,
           sshKey: isSsh.value ? sshKeyB64 : undefined,
-          sshPassphrase: isSsh.value ? newRouter.value.sshPassphrase || undefined : undefined,
+          sshPassphrase: isSsh.value
+            ? newRouter.value.sshPassphrase || undefined
+            : undefined,
         },
       },
     });
@@ -611,8 +708,8 @@ async function createRouter() {
     sshKeyFilename.value = '';
     connectionMode.value = 'api-tls';
     await refresh();
-  } catch (e: any) {
-    const message = e?.data?.message || e?.message || t('admin.routers.createError');
+  } catch (e: unknown) {
+    const message = errorMessage(e, t('admin.routers.createError'));
     toast.showToast({
       type: 'error',
       message,

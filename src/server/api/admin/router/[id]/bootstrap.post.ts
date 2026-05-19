@@ -15,12 +15,11 @@ const BootstrapSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'router:admin');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid router ID' });
   }
+  await requirePermission(event, 'router:admin', { routerId: id });
 
   const router = await Database.routers.get(id);
   if (!router) {

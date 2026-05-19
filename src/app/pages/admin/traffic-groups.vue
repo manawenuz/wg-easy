@@ -8,36 +8,53 @@
       </AdminTrafficGroupDialog>
     </div>
 
-    <div v-if="loading" class="text-center py-8">
+    <div v-if="loading" class="py-8 text-center">
       {{ $t('common.loading') }}
     </div>
 
-    <div v-else-if="groups.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+    <div
+      v-else-if="groups.length === 0"
+      class="py-8 text-center text-gray-500 dark:text-gray-400"
+    >
       {{ $t('admin.trafficGroups.noGroups') }}
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200 dark:divide-neutral-600">
+      <table
+        class="min-w-full divide-y divide-gray-200 dark:divide-neutral-600"
+      >
         <thead class="bg-gray-50 dark:bg-neutral-800">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
               {{ $t('admin.trafficGroups.name') }}
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
               {{ $t('admin.trafficGroups.speedLimits') }}
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
               {{ $t('admin.trafficGroups.quota') }}
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
               {{ $t('admin.trafficGroups.clients') }}
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
               {{ $t('admin.trafficGroups.actions') }}
             </th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200 bg-white dark:divide-neutral-600 dark:bg-neutral-700">
+        <tbody
+          class="divide-y divide-gray-200 bg-white dark:divide-neutral-600 dark:bg-neutral-700"
+        >
           <tr v-for="group in groups" :key="group.id">
             <td class="whitespace-nowrap px-6 py-4">
               <div class="flex items-center gap-2">
@@ -46,7 +63,10 @@
                   :color-light="group.colorLight"
                   :color-dark="group.colorDark"
                 />
-                <span v-if="group.isDefault" class="text-xs text-gray-500 dark:text-gray-400">
+                <span
+                  v-if="group.isDefault"
+                  class="text-xs text-gray-500 dark:text-gray-400"
+                >
                   ({{ $t('admin.trafficGroups.default') }})
                 </span>
               </div>
@@ -61,7 +81,8 @@
             </td>
             <td class="whitespace-nowrap px-6 py-4 text-sm">
               <span v-if="group.quotaLimitBytes">
-                {{ formatBytes(group.quotaLimitBytes) }} / {{ group.quotaPeriod }}
+                {{ formatBytes(group.quotaLimitBytes) }} /
+                {{ group.quotaPeriod }}
               </span>
               <span v-else class="text-gray-500 dark:text-gray-400">
                 {{ $t('admin.trafficGroups.noQuota') }}
@@ -72,7 +93,11 @@
             </td>
             <td class="whitespace-nowrap px-6 py-4 text-sm">
               <div class="flex gap-2">
-                <AdminTrafficGroupDialog mode="edit" :group="group" @save="(data) => handleUpdate(group.id, data)">
+                <AdminTrafficGroupDialog
+                  mode="edit"
+                  :group="group"
+                  @save="(data) => handleUpdate(group.id, data)"
+                >
                   <BaseSecondaryButton class="text-xs">
                     {{ $t('admin.trafficGroups.edit') }}
                   </BaseSecondaryButton>
@@ -111,11 +136,20 @@ interface TrafficGroup {
   upKbps: number | null;
   downKbps: number | null;
   quotaLimitBytes: number | null;
-  quotaPeriod: string | null;
-  quotaAutoDisable: boolean;
+  quotaPeriod: 'daily' | 'weekly' | 'monthly' | null;
+  quotaAutoDisable: boolean | null;
   isDefault: boolean;
   clientCount: number;
 }
+
+type TrafficGroupSaveData = {
+  name: string;
+  upKbps?: number;
+  downKbps?: number;
+  quotaLimitBytes?: number;
+  quotaPeriod?: 'daily' | 'weekly' | 'monthly';
+  quotaAutoDisable?: boolean;
+};
 
 const groups = ref<TrafficGroup[]>([]);
 const loading = ref(true);
@@ -132,7 +166,7 @@ async function loadGroups() {
   }
 }
 
-async function handleCreate(data: any) {
+async function handleCreate(data: TrafficGroupSaveData) {
   try {
     await $fetch('/api/admin/traffic-groups', {
       method: 'POST',
@@ -144,7 +178,7 @@ async function handleCreate(data: any) {
   }
 }
 
-async function handleUpdate(id: number, data: any) {
+async function handleUpdate(id: number, data: TrafficGroupSaveData) {
   try {
     await $fetch(`/api/admin/traffic-groups/${id}`, {
       method: 'PATCH',

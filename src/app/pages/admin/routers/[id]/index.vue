@@ -33,16 +33,22 @@
           v-model="form.tlsRequired"
           :label="t('admin.routers.tlsRequired')"
         />
-        <p v-if="!form.tlsRequired" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+        <p
+          v-if="!form.tlsRequired"
+          class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+        >
           {{ t('admin.routers.tlsWarningPlaintext') }}
         </p>
         <div class="mt-4 flex flex-col gap-1">
-          <label class="text-sm font-medium">{{ t('admin.routers.fingerprint') }}</label>
+          <label class="text-sm font-medium">{{
+            t('admin.routers.fingerprint')
+          }}</label>
           <div class="flex gap-2">
             <FormTextField
               id="tlsFingerprintSha256"
               v-model="form.tlsFingerprintSha256"
               class="flex-1"
+              :label="t('admin.routers.fingerprint')"
               :placeholder="t('admin.routers.fingerprintPlaceholder')"
             />
             <BaseSecondaryButton class="px-3" @click="fetchFingerprint">
@@ -117,10 +123,16 @@
     </FormElement>
 
     <div v-if="interfaces && interfaces.length > 0" class="mt-6">
-      <h3 class="mb-2 text-lg font-semibold">{{ t('admin.routers.interfaces') }}</h3>
-      <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-600">
+      <h3 class="mb-2 text-lg font-semibold">
+        {{ t('admin.routers.interfaces') }}
+      </h3>
+      <div
+        class="overflow-hidden rounded-lg border border-gray-200 dark:border-neutral-600"
+      >
         <table class="w-full text-left text-sm">
-          <thead class="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
+          <thead
+            class="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-neutral-800 dark:text-neutral-300"
+          >
             <tr>
               <th class="px-4 py-3">{{ t('admin.interface.device') }}</th>
               <th class="px-4 py-3">{{ t('general.port') }}</th>
@@ -144,7 +156,11 @@
                       : 'text-red-600 dark:text-red-400'
                   "
                 >
-                  {{ iface.enabled ? t('admin.routers.enabled') : t('admin.routers.disabled') }}
+                  {{
+                    iface.enabled
+                      ? t('admin.routers.enabled')
+                      : t('admin.routers.disabled')
+                  }}
                 </span>
               </td>
               <td class="px-4 py-3">
@@ -169,6 +185,16 @@ const route = useRoute();
 const routerNav = useRouter();
 const id = Number(route.params.id);
 
+function errorMessage(error: unknown, fallback: string): string {
+  const err = error as {
+    data?: { statusMessage?: string; message?: string };
+    message?: string;
+  };
+  return (
+    err.data?.statusMessage || err.data?.message || err.message || fallback
+  );
+}
+
 interface RouterItem {
   id: number;
   name: string;
@@ -189,10 +215,9 @@ interface InterfaceItem {
   engineType: string;
 }
 
-const { data: routerList, refresh: refreshRouter } = await useFetch<RouterItem[]>(
-  `/api/admin/router`,
-  { method: 'get' }
-);
+const { data: routerList, refresh: refreshRouter } = await useFetch<
+  RouterItem[]
+>(`/api/admin/router`, { method: 'get' });
 
 // Filter the specific router from the list since there's no single GET endpoint
 const routerData = computed(() => {
@@ -200,10 +225,9 @@ const routerData = computed(() => {
   return routerList.value.find((r) => r.id === id) ?? null;
 });
 
-const { data: interfaces, refresh: refreshInterfaces } = await useFetch<InterfaceItem[]>(
-  `/api/admin/interfaces`,
-  { method: 'get', query: { routerId: id } }
-);
+const { data: interfaces, refresh: refreshInterfaces } = await useFetch<
+  InterfaceItem[]
+>(`/api/admin/interfaces`, { method: 'get', query: { routerId: id } });
 
 const form = ref({
   name: '',
@@ -257,23 +281,37 @@ async function fetchFingerprint() {
     });
     form.value.tlsFingerprintSha256 = res.spki;
     alert(t('admin.routers.testSuccess'));
-  } catch (e: any) {
-    alert(e?.data?.statusMessage || e?.message || t('admin.routers.testFailed'));
+  } catch (e: unknown) {
+    alert(errorMessage(e, t('admin.routers.testFailed')));
   }
 }
 
 async function submit() {
   const body: Record<string, unknown> = {};
   if (form.value.name !== routerData.value?.name) body.name = form.value.name;
-  if (form.value.host !== (routerData.value?.host ?? '')) body.host = form.value.host || null;
-  if (form.value.port !== (routerData.value?.port ?? 22)) body.port = form.value.port;
-  if (form.value.apiPort !== (routerData.value?.apiPort ?? 8729)) body.apiPort = form.value.apiPort;
-  if (form.value.tlsRequired !== routerData.value?.tlsRequired) body.tlsRequired = form.value.tlsRequired;
-  if (form.value.tlsFingerprintSha256 !== (routerData.value?.tlsFingerprintSha256 ?? ''))
+  if (form.value.host !== (routerData.value?.host ?? ''))
+    body.host = form.value.host || null;
+  if (form.value.port !== (routerData.value?.port ?? 22))
+    body.port = form.value.port;
+  if (form.value.apiPort !== (routerData.value?.apiPort ?? 8729))
+    body.apiPort = form.value.apiPort;
+  if (form.value.tlsRequired !== routerData.value?.tlsRequired)
+    body.tlsRequired = form.value.tlsRequired;
+  if (
+    form.value.tlsFingerprintSha256 !==
+    (routerData.value?.tlsFingerprintSha256 ?? '')
+  )
     body.tlsFingerprintSha256 = form.value.tlsFingerprintSha256 || null;
-  if (form.value.enabled !== routerData.value?.enabled) body.enabled = form.value.enabled;
+  if (form.value.enabled !== routerData.value?.enabled)
+    body.enabled = form.value.enabled;
 
-  if (form.value.apiUser || form.value.apiPassword || form.value.sshUser || form.value.sshKey || form.value.sshPassphrase) {
+  if (
+    form.value.apiUser ||
+    form.value.apiPassword ||
+    form.value.sshUser ||
+    form.value.sshKey ||
+    form.value.sshPassphrase
+  ) {
     body.credentials = {
       apiUser: form.value.apiUser,
       apiPassword: form.value.apiPassword,
@@ -312,12 +350,19 @@ async function revert() {
 
 async function testConnection() {
   try {
-    const result = await $fetch(`/api/admin/router/${id}/test`, { method: 'post' });
-    alert(`${t('admin.routers.testSuccess')}: ${result.version} (${result.peersCount} peers)`);
+    const result = await $fetch(`/api/admin/router/${id}/test`, {
+      method: 'post',
+    });
+    alert(
+      `${t('admin.routers.testSuccess')}: ${result.version} (${result.peersCount} peers)`
+    );
   } catch (err: unknown) {
     const message =
       err && typeof err === 'object' && 'data' in err
-        ? String((err as { data?: { statusMessage?: string } }).data?.statusMessage ?? '')
+        ? String(
+            (err as { data?: { statusMessage?: string } }).data
+              ?.statusMessage ?? ''
+          )
         : err instanceof Error
           ? err.message
           : 'Unknown error';
@@ -332,11 +377,8 @@ function goToBootstrap() {
 function downloadRsc() {
   const r = routerData.value;
   if (!r) return;
-  const mode = r.transport === 'ssh'
-    ? 'ssh'
-    : r.tlsRequired
-      ? 'api-tls'
-      : 'api-plain';
+  const mode =
+    r.transport === 'ssh' ? 'ssh' : r.tlsRequired ? 'api-tls' : 'api-plain';
   const isSshMode = mode === 'ssh';
   const apiPort = r.apiPort ?? (mode === 'api-tls' ? 8729 : 8728);
   const sshPort = r.port ?? 22;
@@ -372,12 +414,18 @@ function downloadRsc() {
       'set [find name=api-ssl] certificate=api-ssl-server',
       `set [find name=api-ssl] port=${apiPort}`,
       'set [find name=api-ssl] disabled=no',
-      'set [find name=api] disabled=yes',
+      'set [find name=api] disabled=yes'
     );
   } else if (mode === 'api-plain') {
-    lines.push(`set [find name=api] port=${apiPort}`, 'set [find name=api] disabled=no');
+    lines.push(
+      `set [find name=api] port=${apiPort}`,
+      'set [find name=api] disabled=no'
+    );
   } else {
-    lines.push(`set [find name=ssh] port=${sshPort}`, 'set [find name=ssh] disabled=no');
+    lines.push(
+      `set [find name=ssh] port=${sshPort}`,
+      'set [find name=ssh] disabled=no'
+    );
   }
   lines.push(
     '',
@@ -390,7 +438,7 @@ function downloadRsc() {
     `:if ([:len [find comment="wg-easy: mgmt"]] = 0) do={ add chain=input action=accept protocol=tcp dst-port=${isSshMode ? sshPort : apiPort} comment="wg-easy: mgmt" place-before=0 }`,
     ':if ([:len [find comment="wg-easy: wireguard"]] = 0) do={ add chain=input action=accept protocol=udp dst-port=51820 comment="wg-easy: wireguard" place-before=0 }',
     '',
-    ':put "wg-easy bootstrap complete."',
+    ':put "wg-easy bootstrap complete."'
   );
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);

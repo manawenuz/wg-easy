@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { requirePermission, isAdminPrincipal, isSuperAdminPrincipal } from './permissions';
+import {
+  getAllowedRouterIds,
+  isAdminPrincipal,
+  isSuperAdminPrincipal,
+  requireClientPermission,
+  requirePermission,
+} from './permissions';
 import { roles } from '#shared/utils/permissions';
 
 vi.mock('./principal', () => ({
@@ -21,55 +27,93 @@ describe('requirePermission', () => {
     updatedAt: new Date().toISOString(),
   });
 
-  const makeEvent = (principal: any) =>
-    ({ context: { principal } } as any);
+  const makeEvent = (principal: any) => ({ context: { principal } }) as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as any).Database = {
       adminRouterAcls: {
         getByUserAndRouter: vi.fn(),
+        getByUserId: vi.fn(),
+      },
+      interfaces: {
+        get: vi.fn(),
       },
     };
   });
 
   // --- Superadmin ---
   it('allows superadmin for any permission', async () => {
-    const event = makeEvent({ kind: 'admin', user: mockUser(roles.SUPERADMIN) });
-    await expect(requirePermission(event, 'router:write')).resolves.toBeUndefined();
-    await expect(requirePermission(event, 'admin:settings')).resolves.toBeUndefined();
+    const event = makeEvent({
+      kind: 'admin',
+      user: mockUser(roles.SUPERADMIN),
+    });
+    await expect(
+      requirePermission(event, 'router:write')
+    ).resolves.toBeUndefined();
+    await expect(
+      requirePermission(event, 'admin:settings')
+    ).resolves.toBeUndefined();
   });
 
   // --- Admin with ACL ---
   it('allows admin with write ACL for router:write', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'write' } as any);
-    await expect(requirePermission(event, 'router:write', { routerId: 1 })).resolves.toBeUndefined();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'write',
+    } as any);
+    await expect(
+      requirePermission(event, 'router:write', { routerId: 1 })
+    ).resolves.toBeUndefined();
   });
 
   it('allows admin with admin ACL for router:admin', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'admin' } as any);
-    await expect(requirePermission(event, 'router:admin', { routerId: 1 })).resolves.toBeUndefined();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'admin',
+    } as any);
+    await expect(
+      requirePermission(event, 'router:admin', { routerId: 1 })
+    ).resolves.toBeUndefined();
   });
 
   it('denies admin with read ACL for router:write', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'read' } as any);
-    await expect(requirePermission(event, 'router:write', { routerId: 1 })).rejects.toThrow();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'read',
+    } as any);
+    await expect(
+      requirePermission(event, 'router:write', { routerId: 1 })
+    ).rejects.toThrow();
   });
 
   it('denies admin without ACL for router:read', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue(undefined);
-    await expect(requirePermission(event, 'router:read', { routerId: 1 })).rejects.toThrow();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue(
+      undefined
+    );
+    await expect(
+      requirePermission(event, 'router:read', { routerId: 1 })
+    ).rejects.toThrow();
   });
 
   // --- Operator ---
   it('allows operator for client:write with write ACL', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.OPERATOR) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'write' } as any);
-    await expect(requirePermission(event, 'client:write', { routerId: 1 })).resolves.toBeUndefined();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'write',
+    } as any);
+    await expect(
+      requirePermission(event, 'client:write', { routerId: 1 })
+    ).resolves.toBeUndefined();
   });
 
   it('denies operator for router:write', async () => {
@@ -85,8 +129,14 @@ describe('requirePermission', () => {
   // --- Viewer ---
   it('allows viewer for router:read with read ACL', async () => {
     const event = makeEvent({ kind: 'admin', user: mockUser(roles.VIEWER) });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'read' } as any);
-    await expect(requirePermission(event, 'router:read', { routerId: 1 })).resolves.toBeUndefined();
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'read',
+    } as any);
+    await expect(
+      requirePermission(event, 'router:read', { routerId: 1 })
+    ).resolves.toBeUndefined();
   });
 
   it('denies viewer for client:write', async () => {
@@ -96,18 +146,36 @@ describe('requirePermission', () => {
 
   // --- Client / dashboard ---
   it('allows user principal for dashboard:self', async () => {
-    const event = makeEvent({ kind: 'user', user: mockUser(roles.CLIENT), clientId: 1 });
-    await expect(requirePermission(event, 'dashboard:self')).resolves.toBeUndefined();
+    const event = makeEvent({
+      kind: 'user',
+      user: mockUser(roles.CLIENT),
+      clientId: 1,
+    });
+    await expect(
+      requirePermission(event, 'dashboard:self')
+    ).resolves.toBeUndefined();
   });
 
   it('denies user principal for admin:settings even if underlying role is ADMIN', async () => {
-    const event = makeEvent({ kind: 'user', user: mockUser(roles.ADMIN), clientId: 1 });
-    await expect(requirePermission(event, 'admin:settings')).rejects.toThrow('Forbidden');
+    const event = makeEvent({
+      kind: 'user',
+      user: mockUser(roles.ADMIN),
+      clientId: 1,
+    });
+    await expect(requirePermission(event, 'admin:settings')).rejects.toThrow(
+      'Forbidden'
+    );
   });
 
   it('denies user principal for router:read even if underlying role is ADMIN', async () => {
-    const event = makeEvent({ kind: 'user', user: mockUser(roles.ADMIN), clientId: 1 });
-    await expect(requirePermission(event, 'router:read')).rejects.toThrow('Forbidden');
+    const event = makeEvent({
+      kind: 'user',
+      user: mockUser(roles.ADMIN),
+      clientId: 1,
+    });
+    await expect(requirePermission(event, 'router:read')).rejects.toThrow(
+      'Forbidden'
+    );
   });
 
   it('denies client role for router:read', async () => {
@@ -117,13 +185,29 @@ describe('requirePermission', () => {
 
   // --- Token ---
   it('allows token with matching scope', async () => {
-    const event = makeEvent({ kind: 'token', user: mockUser(roles.ADMIN), tokenId: 1, scopes: ['client:read'] });
-    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({ userId: 1, routerId: 1, permission: 'read' } as any);
-    await expect(requirePermission(event, 'client:read', { routerId: 1 })).resolves.toBeUndefined();
+    const event = makeEvent({
+      kind: 'token',
+      user: mockUser(roles.ADMIN),
+      tokenId: 1,
+      scopes: ['client:read'],
+    });
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 1,
+      permission: 'read',
+    } as any);
+    await expect(
+      requirePermission(event, 'client:read', { routerId: 1 })
+    ).resolves.toBeUndefined();
   });
 
   it('denies token without matching scope', async () => {
-    const event = makeEvent({ kind: 'token', user: mockUser(roles.ADMIN), tokenId: 1, scopes: ['client:read'] });
+    const event = makeEvent({
+      kind: 'token',
+      user: mockUser(roles.ADMIN),
+      tokenId: 1,
+      scopes: ['client:read'],
+    });
     await expect(requirePermission(event, 'admin:users')).rejects.toThrow();
   });
 
@@ -132,23 +216,86 @@ describe('requirePermission', () => {
     const event = makeEvent(null);
     await expect(requirePermission(event, 'client:read')).rejects.toThrow();
   });
+
+  it('returns null allowed router set for superadmin', async () => {
+    const event = makeEvent({
+      kind: 'admin',
+      user: mockUser(roles.SUPERADMIN),
+    });
+    await expect(getAllowedRouterIds(event, 'router:read')).resolves.toBeNull();
+  });
+
+  it('returns ACL-filtered router IDs for scoped list routes', async () => {
+    const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
+    vi.mocked(Database.adminRouterAcls.getByUserId).mockResolvedValue([
+      { userId: 1, routerId: 1, permission: 'read' },
+      { userId: 1, routerId: 2, permission: 'write' },
+    ] as any);
+
+    const ids = await getAllowedRouterIds(event, 'router:write');
+
+    expect(ids).toEqual(new Set([2]));
+  });
+
+  it('checks client permissions against the client interface router', async () => {
+    const event = makeEvent({ kind: 'admin', user: mockUser(roles.ADMIN) });
+    vi.mocked(Database.interfaces.get).mockResolvedValue({
+      routerId: 7,
+    } as any);
+    vi.mocked(Database.adminRouterAcls.getByUserAndRouter).mockResolvedValue({
+      userId: 1,
+      routerId: 7,
+      permission: 'read',
+    } as any);
+
+    await expect(
+      requireClientPermission(event, 'client:read', { interfaceId: 'wg0' })
+    ).resolves.toBeUndefined();
+    expect(Database.adminRouterAcls.getByUserAndRouter).toHaveBeenCalledWith(
+      1,
+      7
+    );
+  });
 });
 
 describe('isAdminPrincipal', () => {
   it('returns true for admin', () => {
-    expect(isAdminPrincipal({ kind: 'admin', user: { id: 1, role: roles.ADMIN } as any })).toBe(true);
+    expect(
+      isAdminPrincipal({
+        kind: 'admin',
+        user: { id: 1, role: roles.ADMIN } as any,
+      })
+    ).toBe(true);
   });
 
   it('returns true for operator', () => {
-    expect(isAdminPrincipal({ kind: 'admin', user: { id: 1, role: roles.OPERATOR } as any })).toBe(true);
+    expect(
+      isAdminPrincipal({
+        kind: 'admin',
+        user: { id: 1, role: roles.OPERATOR } as any,
+      })
+    ).toBe(true);
   });
 
   it('returns false for token with client role', () => {
-    expect(isAdminPrincipal({ kind: 'token', user: { id: 1, role: roles.CLIENT } as any, tokenId: 1, scopes: [] })).toBe(false);
+    expect(
+      isAdminPrincipal({
+        kind: 'token',
+        user: { id: 1, role: roles.CLIENT } as any,
+        tokenId: 1,
+        scopes: [],
+      })
+    ).toBe(false);
   });
 
   it('returns false for user principal even if underlying role is ADMIN', () => {
-    expect(isAdminPrincipal({ kind: 'user', user: { id: 1, role: roles.ADMIN } as any, clientId: 1 })).toBe(false);
+    expect(
+      isAdminPrincipal({
+        kind: 'user',
+        user: { id: 1, role: roles.ADMIN } as any,
+        dashboardUserId: 1,
+      })
+    ).toBe(false);
   });
 
   it('returns false for null', () => {
@@ -158,11 +305,21 @@ describe('isAdminPrincipal', () => {
 
 describe('isSuperAdminPrincipal', () => {
   it('returns true for superadmin', () => {
-    expect(isSuperAdminPrincipal({ kind: 'admin', user: { id: 1, role: roles.SUPERADMIN } as any })).toBe(true);
+    expect(
+      isSuperAdminPrincipal({
+        kind: 'admin',
+        user: { id: 1, role: roles.SUPERADMIN } as any,
+      })
+    ).toBe(true);
   });
 
   it('returns false for admin', () => {
-    expect(isSuperAdminPrincipal({ kind: 'admin', user: { id: 1, role: roles.ADMIN } as any })).toBe(false);
+    expect(
+      isSuperAdminPrincipal({
+        kind: 'admin',
+        user: { id: 1, role: roles.ADMIN } as any,
+      })
+    ).toBe(false);
   });
 
   it('returns false for null', () => {

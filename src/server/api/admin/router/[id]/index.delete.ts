@@ -1,10 +1,9 @@
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'router:admin');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid router ID' });
   }
+  await requirePermission(event, 'router:admin', { routerId: id });
 
   const existing = await Database.routers.get(id);
   if (!existing) {
@@ -21,7 +20,10 @@ export default defineEventHandler(async (event) => {
 
   await Database.routers.delete(id);
 
-  await logAction(event, 'router.delete', { routerId: id, name: existing.name });
+  await logAction(event, 'router.delete', {
+    routerId: id,
+    name: existing.name,
+  });
 
   return { ok: true };
 });

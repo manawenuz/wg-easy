@@ -2,14 +2,13 @@ import { getEngine } from '../../../../engines/registry';
 import { syncOrEnqueue } from '../../../../utils/syncOrEnqueue';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'router:admin');
-
   const raw = getRouterParam(event, 'id');
   const id = Number(raw);
   // The 'self' router has id=0, which falsy-checks would reject.
   if (raw == null || Number.isNaN(id) || id < 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid router ID' });
   }
+  await requirePermission(event, 'router:admin', { routerId: id });
 
   const router = await Database.routers.get(id);
   if (!router) {
@@ -29,7 +28,10 @@ export default defineEventHandler(async (event) => {
     routerId: router.id,
   } as Parameters<typeof Database.interfaces.update>[0]);
 
-  await logAction(event, 'router.activate', { routerId: id, name: router.name });
+  await logAction(event, 'router.activate', {
+    routerId: id,
+    name: router.name,
+  });
 
   // Trigger a sync so any clients in the DB show up on the new target.
   const refreshed = await Database.interfaces.get();

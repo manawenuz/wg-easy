@@ -5,7 +5,9 @@ import type { TransportType } from '../../../../database/repositories/router/sch
 
 const UpdateRouterSchema = z.object({
   name: z.string().min(1).pipe(safeStringRefine).optional(),
-  engineType: z.enum(['wireguard', 'amneziawg', 'boringtun', 'mikrotik'] as const).optional(),
+  engineType: z
+    .enum(['wireguard', 'amneziawg', 'boringtun', 'mikrotik'] as const)
+    .optional(),
   transport: z.enum(['local-shell', 'ssh', 'routeros-api'] as const).optional(),
   host: z.string().min(1).optional().nullable(),
   port: z.number().int().min(1).max(65535).optional().nullable(),
@@ -25,12 +27,11 @@ const UpdateRouterSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'router:admin');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid router ID' });
   }
+  await requirePermission(event, 'router:admin', { routerId: id });
 
   const body = await readValidatedBody(
     event,
@@ -45,13 +46,17 @@ export default defineEventHandler(async (event) => {
   const updateData: Parameters<typeof Database.routers.update>[1] = {};
 
   if (body.name !== undefined) updateData.name = body.name;
-  if (body.engineType !== undefined) updateData.engineType = body.engineType as EngineType;
-  if (body.transport !== undefined) updateData.transport = body.transport as TransportType;
+  if (body.engineType !== undefined)
+    updateData.engineType = body.engineType as EngineType;
+  if (body.transport !== undefined)
+    updateData.transport = body.transport as TransportType;
   if (body.host !== undefined) updateData.host = body.host;
   if (body.port !== undefined) updateData.port = body.port;
-  if (body.apiPort !== undefined) updateData.apiPort = body.apiPort;
+  if (body.apiPort !== undefined && body.apiPort !== null)
+    updateData.apiPort = body.apiPort;
   if (body.tlsRequired !== undefined) updateData.tlsRequired = body.tlsRequired;
-  if (body.tlsFingerprintSha256 !== undefined) updateData.tlsFingerprintSha256 = body.tlsFingerprintSha256;
+  if (body.tlsFingerprintSha256 !== undefined)
+    updateData.tlsFingerprintSha256 = body.tlsFingerprintSha256;
   if (body.enabled !== undefined) updateData.enabled = body.enabled;
 
   if (body.credentials) {
@@ -63,7 +68,9 @@ export default defineEventHandler(async (event) => {
     };
     updateData.credentialsEncrypted = encrypt(JSON.stringify(credentials));
     if (body.credentials.sshPassphrase) {
-      updateData.sshPassphraseEncrypted = encrypt(body.credentials.sshPassphrase);
+      updateData.sshPassphraseEncrypted = encrypt(
+        body.credentials.sshPassphrase
+      );
     }
   }
 

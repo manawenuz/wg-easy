@@ -41,17 +41,32 @@ describe('dashboard/login/verify.post', () => {
   const makeEvent = (body: unknown) =>
     ({ context: {}, body, headers: {} }) as unknown as Parameters<Handler>[0];
 
-  let mockSession: { update: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> };
+  let mockSession: {
+    update: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+  };
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('readBody', vi.fn(async (event: { body: unknown }) => event.body));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('useSession', vi.fn(async () => mockSession));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'readBody',
+      vi.fn(async (event: { body: unknown }) => event.body)
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'useSession',
+      vi.fn(async () => mockSession)
+    );
     vi.stubGlobal('WG_ENV', { INSECURE: false });
   });
 
@@ -65,16 +80,25 @@ describe('dashboard/login/verify.post', () => {
         findByPublicKey: vi.fn(),
       },
       general: {
-        getSessionConfig: vi.fn(async () => ({ sessionPassword: 'test-password' })),
+        getSessionConfig: vi.fn(async () => ({
+          sessionPassword: 'test-password',
+        })),
       },
     });
   });
 
   it('returns 200 and sets cookie for valid login', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -86,32 +110,49 @@ describe('dashboard/login/verify.post', () => {
       },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
     const result = await verifyHandler(event);
 
     expect(result).toEqual({ ok: true });
-    expect(mockSession.update).toHaveBeenCalledWith({ userId: 42, dashboardUserId: 42 });
+    expect(mockSession.update).toHaveBeenCalledWith({
+      userId: 42,
+      dashboardUserId: 42,
+    });
   });
 
   it('returns 401 for invalid challenge', async () => {
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId: 'non-existent', signature: 'abc' });
 
-    await expect(verifyHandler(event)).rejects.toThrow('Invalid challenge or signature');
+    await expect(verifyHandler(event)).rejects.toThrow(
+      'Invalid challenge or signature'
+    );
   });
 
   it('returns 401 when client public key is not found', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(null as any);
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
 
     await expect(verifyHandler(event)).rejects.toThrow('Invalid public key');
@@ -119,9 +160,16 @@ describe('dashboard/login/verify.post', () => {
 
   it('allows disabled (non-expired) clients to log in', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -130,9 +178,12 @@ describe('dashboard/login/verify.post', () => {
       user: { id: 42, enabled: true, role: roles.CLIENT },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
     const result = await verifyHandler(event);
 
@@ -141,9 +192,16 @@ describe('dashboard/login/verify.post', () => {
 
   it('returns 403 when client has expired', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -152,9 +210,12 @@ describe('dashboard/login/verify.post', () => {
       user: { id: 42, enabled: true, role: roles.CLIENT },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
 
     await expect(verifyHandler(event)).rejects.toThrow('Client has expired');
@@ -162,9 +223,16 @@ describe('dashboard/login/verify.post', () => {
 
   it('returns 403 when user is disabled', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -172,9 +240,12 @@ describe('dashboard/login/verify.post', () => {
       user: { id: 42, enabled: false, role: roles.CLIENT },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
 
     await expect(verifyHandler(event)).rejects.toThrow('User is disabled');
@@ -182,9 +253,16 @@ describe('dashboard/login/verify.post', () => {
 
   it('allows any user role for dashboard login', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -193,9 +271,12 @@ describe('dashboard/login/verify.post', () => {
       user: { id: 42, enabled: true, role: roles.ADMIN },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
     const event = makeEvent({ challengeId, signature });
     const result = await verifyHandler(event);
 
@@ -203,7 +284,8 @@ describe('dashboard/login/verify.post', () => {
   });
 
   it('returns 429 after 10 attempts from same IP', async () => {
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
 
     // Make 10 failed attempts
     for (let i = 0; i < 10; i++) {
@@ -222,9 +304,16 @@ describe('dashboard/login/verify.post', () => {
 
   it('rejects replay of same challenge', async () => {
     const clientKeypair = nacl.box.keyPair();
-    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString('base64');
-    const { challengeId, nonce, serverPublicKey } = createChallenge(publicKeyBase64);
-    const signature = computeSignature(clientKeypair.secretKey, serverPublicKey, nonce);
+    const publicKeyBase64 = Buffer.from(clientKeypair.publicKey).toString(
+      'base64'
+    );
+    const { challengeId, nonce, serverPublicKey } =
+      createChallenge(publicKeyBase64);
+    const signature = computeSignature(
+      clientKeypair.secretKey,
+      serverPublicKey,
+      nonce
+    );
 
     const mockClient = {
       id: 1,
@@ -232,15 +321,20 @@ describe('dashboard/login/verify.post', () => {
       user: { id: 42, enabled: true, role: roles.CLIENT },
     };
 
-    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(mockClient as any);
+    vi.mocked(Database.clients.findByPublicKey).mockResolvedValue(
+      mockClient as any
+    );
 
-    const verifyHandler = (await import('./verify.post')).default as Handler;
+    const verifyHandler = (await import('./verify.post'))
+      .default as unknown as Handler;
 
     // First attempt succeeds
     const event = makeEvent({ challengeId, signature });
     await verifyHandler(event);
 
     // Second attempt with same challenge fails
-    await expect(verifyHandler(event)).rejects.toThrow('Invalid challenge or signature');
+    await expect(verifyHandler(event)).rejects.toThrow(
+      'Invalid challenge or signature'
+    );
   });
 });

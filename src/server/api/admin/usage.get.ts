@@ -5,7 +5,7 @@ const UsageRangeSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'client:read');
+  const allowedRouterIds = await getAllowedRouterIds(event, 'client:read');
 
   const { range } = await getValidatedQuery(
     event,
@@ -29,7 +29,26 @@ export default defineEventHandler(async (event) => {
   const startTs = new Date(now - lookbackMs);
 
   const allSamples = await Database.usageSamples.getAll();
+  let allowedClientIds: Set<number> | null = null;
+  if (allowedRouterIds !== null) {
+    const interfaces = await Database.interfaces.getAll();
+    const routerIdByInterface = new Map(
+      interfaces.map((iface) => [iface.name, iface.routerId])
+    );
+    allowedClientIds = new Set(
+      (await Database.clients.getAllPublic())
+        .filter((client) => {
+          const routerId = routerIdByInterface.get(client.interfaceId);
+          return routerId !== undefined && allowedRouterIds.has(routerId);
+        })
+        .map((client) => client.id)
+    );
+  }
   const filteredSamples = allSamples
+    .filter(
+      (sample) =>
+        allowedClientIds === null || allowedClientIds.has(sample.clientId)
+    )
     .filter((s) => s.ts && new Date(s.ts).getTime() >= startTs.getTime())
     .sort((a, b) => {
       const tsDiff = new Date(a.ts).getTime() - new Date(b.ts).getTime();

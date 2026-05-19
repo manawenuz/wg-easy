@@ -6,8 +6,18 @@ describe('admin/router/index.get', () => {
   }) => Promise<unknown>;
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'getAllowedRouterIds',
+      vi.fn(async () => null)
+    );
   });
 
   beforeEach(() => {
@@ -49,7 +59,7 @@ describe('admin/router/index.get', () => {
   });
 
   it('returns all routers with credentials stripped', async () => {
-    const handler = (await import('./index.get')).default as Handler;
+    const handler = (await import('./index.get')).default as unknown as Handler;
     const result = (await handler({ context: { principal: {} } })) as Array<{
       id: number;
       name: string;
@@ -70,10 +80,24 @@ describe('admin/router/index.get', () => {
   });
 
   it('includes engine metadata (dockerized) in the response', async () => {
-    const handler = (await import('./index.get')).default as Handler;
-    const result = (await handler({ context: { principal: {} } })) as Array<Record<string, unknown>>;
+    const handler = (await import('./index.get')).default as unknown as Handler;
+    const result = (await handler({ context: { principal: {} } })) as Array<
+      Record<string, unknown>
+    >;
 
     expect(result[0]!).toHaveProperty('dockerized');
     expect(result[1]!).toHaveProperty('dockerized');
+  });
+
+  it('filters routers by allowed ACL IDs', async () => {
+    vi.mocked((globalThis as any).getAllowedRouterIds).mockResolvedValue(
+      new Set([2])
+    );
+    const handler = (await import('./index.get')).default as unknown as Handler;
+    const result = (await handler({ context: { principal: {} } })) as Array<{
+      id: number;
+    }>;
+
+    expect(result.map((router) => router.id)).toEqual([2]);
   });
 });

@@ -23,18 +23,32 @@ describe('admin/clients/[id]/quota.get', () => {
   const makeEvent = (
     principal: { kind: string; user: ReturnType<typeof mockUser> },
     params: { id: string }
-  ) =>
-    ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
+  ) => ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
   });
 
   beforeEach(() => {
@@ -67,7 +81,7 @@ describe('admin/clients/[id]/quota.get', () => {
   });
 
   it('returns user quota resolved through client', async () => {
-    const handler = (await import('./quota.get')).default as Handler;
+    const handler = (await import('./quota.get')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' }
@@ -83,7 +97,7 @@ describe('admin/clients/[id]/quota.get', () => {
   });
 
   it('returns null when no quota exists', async () => {
-    const handler = (await import('./quota.get')).default as Handler;
+    const handler = (await import('./quota.get')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' }
@@ -103,7 +117,7 @@ describe('admin/clients/[id]/quota.get', () => {
   });
 
   it('rejects invalid client id', async () => {
-    const handler = (await import('./quota.get')).default as Handler;
+    const handler = (await import('./quota.get')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: 'invalid' }
@@ -113,7 +127,7 @@ describe('admin/clients/[id]/quota.get', () => {
   });
 
   it('returns 404 for nonexistent client', async () => {
-    const handler = (await import('./quota.get')).default as Handler;
+    const handler = (await import('./quota.get')).default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' }

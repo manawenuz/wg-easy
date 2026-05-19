@@ -26,18 +26,44 @@ describe('admin/clients/[id]/speed-limit.put', () => {
     params: { id: string },
     body: object
   ) =>
-    ({ context: { principal }, _params: params, _body: body }) as Parameters<Handler>[0];
+    ({
+      context: { principal },
+      _params: params,
+      _body: body,
+    }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
-    vi.stubGlobal('readValidatedBody', vi.fn(async (event: { _body: object }) => event._body));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'requireClientPermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
+    vi.stubGlobal(
+      'readValidatedBody',
+      vi.fn(async (event: { _body: object }) => event._body)
+    );
   });
 
   beforeEach(() => {
@@ -45,10 +71,18 @@ describe('admin/clients/[id]/speed-limit.put', () => {
     vi.stubGlobal('Database', {
       clients: {
         get: vi.fn(async (id: number) => {
-          if (id === 1) return { id: 1, name: 'client1', publicKey: 'pk1', ipv4Address: '10.0.0.1' };
+          if (id === 1)
+            return {
+              id: 1,
+              name: 'client1',
+              publicKey: 'pk1',
+              ipv4Address: '10.0.0.1',
+            };
           return undefined;
         }),
-        getAll: vi.fn(async () => [{ id: 1, name: 'client1', publicKey: 'pk1', ipv4Address: '10.0.0.1' }]),
+        getAll: vi.fn(async () => [
+          { id: 1, name: 'client1', publicKey: 'pk1', ipv4Address: '10.0.0.1' },
+        ]),
       },
       interfaces: {
         get: vi.fn(async () => ({ name: 'wg0', engineType: 'wireguard' })),
@@ -62,18 +96,25 @@ describe('admin/clients/[id]/speed-limit.put', () => {
         create: vi.fn(async () => {}),
       },
     });
-    vi.stubGlobal('logAction', vi.fn(async () => {}));
+    vi.stubGlobal(
+      'logAction',
+      vi.fn(async () => {})
+    );
 
     const mockEngine = {
       capabilities: { speedLimit: 'engine-native' },
       applySpeedLimit: vi.fn(async () => {}),
       clearSpeedLimit: vi.fn(async () => {}),
     };
-    vi.stubGlobal('getEngine', vi.fn(() => mockEngine));
+    vi.stubGlobal(
+      'getEngine',
+      vi.fn(() => mockEngine)
+    );
   });
 
   it('sets speed limit for client', async () => {
-    const handler = (await import('./speed-limit.put')).default as Handler;
+    const handler = (await import('./speed-limit.put'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' },
@@ -85,7 +126,8 @@ describe('admin/clients/[id]/speed-limit.put', () => {
   });
 
   it('clears speed limit when both values are zero', async () => {
-    const handler = (await import('./speed-limit.put')).default as Handler;
+    const handler = (await import('./speed-limit.put'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' },
@@ -97,7 +139,8 @@ describe('admin/clients/[id]/speed-limit.put', () => {
   });
 
   it('returns 404 for nonexistent client', async () => {
-    const handler = (await import('./speed-limit.put')).default as Handler;
+    const handler = (await import('./speed-limit.put'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' },

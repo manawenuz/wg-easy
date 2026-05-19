@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 
 describe('admin/users/[id]/quota-breakdown.get', () => {
-  const mockUser = (id: number, role: number, parentUserId: number | null = null) => ({
+  const mockUser = (
+    id: number,
+    role: number,
+    parentUserId: number | null = null
+  ) => ({
     id,
     username: `user${id}`,
     name: `User ${id}`,
@@ -24,18 +28,32 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
   const makeEvent = (
     principal: { kind: string; user: ReturnType<typeof mockUser> },
     params: { id: string }
-  ) =>
-    ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
+  ) => ({ context: { principal }, _params: params }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
   });
 
   beforeEach(() => {
@@ -56,9 +74,27 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
       },
       clients: {
         getForUsers: vi.fn(async () => [
-          { id: 10, userId: 1, publicKey: 'pk10', enabled: true, name: 'peer1' },
-          { id: 11, userId: 2, publicKey: 'pk11', enabled: true, name: 'peer2' },
-          { id: 12, userId: 3, publicKey: 'pk12', enabled: true, name: 'peer3' },
+          {
+            id: 10,
+            userId: 1,
+            publicKey: 'pk10',
+            enabled: true,
+            name: 'peer1',
+          },
+          {
+            id: 11,
+            userId: 2,
+            publicKey: 'pk11',
+            enabled: true,
+            name: 'peer2',
+          },
+          {
+            id: 12,
+            userId: 3,
+            publicKey: 'pk12',
+            enabled: true,
+            name: 'peer3',
+          },
         ]),
       },
       quotas: {
@@ -80,16 +116,32 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
       },
       usageSamples: {
         getForClients: vi.fn(async () => [
-          { clientId: 10, rxBytes: 100_000_000, txBytes: 100_000_000, ts: new Date() },
-          { clientId: 11, rxBytes: 150_000_000, txBytes: 150_000_000, ts: new Date() },
-          { clientId: 12, rxBytes: 50_000_000, txBytes: 50_000_000, ts: new Date() },
+          {
+            clientId: 10,
+            rxBytes: 100_000_000,
+            txBytes: 100_000_000,
+            ts: new Date(),
+          },
+          {
+            clientId: 11,
+            rxBytes: 150_000_000,
+            txBytes: 150_000_000,
+            ts: new Date(),
+          },
+          {
+            clientId: 12,
+            rxBytes: 50_000_000,
+            txBytes: 50_000_000,
+            ts: new Date(),
+          },
         ]),
       },
     });
   });
 
   it('returns family breakdown with per-member usage', async () => {
-    const handler = (await import('./quota-breakdown.get')).default as Handler;
+    const handler = (await import('./quota-breakdown.get'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '1' }
@@ -100,9 +152,21 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
       rootUserId: 1,
       limitBytes: 1073741824,
       members: expect.arrayContaining([
-        expect.objectContaining({ userId: 1, usedBytes: 200_000_000, clientIds: [10] }),
-        expect.objectContaining({ userId: 2, usedBytes: 300_000_000, clientIds: [11] }),
-        expect.objectContaining({ userId: 3, usedBytes: 100_000_000, clientIds: [12] }),
+        expect.objectContaining({
+          userId: 1,
+          usedBytes: 200_000_000,
+          clientIds: [10],
+        }),
+        expect.objectContaining({
+          userId: 2,
+          usedBytes: 300_000_000,
+          clientIds: [11],
+        }),
+        expect.objectContaining({
+          userId: 3,
+          usedBytes: 100_000_000,
+          clientIds: [12],
+        }),
       ]),
     });
   });
@@ -115,7 +179,8 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
       },
     });
 
-    const handler = (await import('./quota-breakdown.get')).default as Handler;
+    const handler = (await import('./quota-breakdown.get'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: '99' }
@@ -126,7 +191,8 @@ describe('admin/users/[id]/quota-breakdown.get', () => {
   });
 
   it('rejects invalid user id', async () => {
-    const handler = (await import('./quota-breakdown.get')).default as Handler;
+    const handler = (await import('./quota-breakdown.get'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 3) },
       { id: 'invalid' }

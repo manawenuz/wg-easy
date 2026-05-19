@@ -1,3 +1,6 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import type { LocalShellTransport } from '../../transports/local-shell';
 
@@ -90,6 +93,7 @@ describe('BoringtunEngine', () => {
   };
 
   beforeAll(async () => {
+    process.env.WG_CONFIG_DIR = await mkdtemp(join(tmpdir(), 'wg-easy-bt-'));
     transportExec = vi.fn(async () => ({ stdout: '', stderr: '' }));
 
     const mockTransport = {
@@ -222,7 +226,8 @@ describe('BoringtunEngine', () => {
 
   it('sampleUsage parses wg dump output', async () => {
     transportExec.mockResolvedValueOnce({
-      stdout: 'wg0\tprivKey\tpubKey\t51820\nclientPub\t(none)\t0\t1234\t5678\t1710000000\t25\n',
+      stdout:
+        'wg0\tprivKey\tpubKey\t51820\nclientPub\t(none)\t0\t1234\t5678\t1710000000\t25\n',
       stderr: '',
     });
 

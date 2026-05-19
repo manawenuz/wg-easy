@@ -16,29 +16,64 @@ describe('dashboard/usage.get', () => {
   });
 
   type Handler = (event: {
-    context: { principal: { kind: string; user: ReturnType<typeof mockUser>; dashboardUserId: number } };
+    context: {
+      principal: {
+        kind: string;
+        user: ReturnType<typeof mockUser>;
+        dashboardUserId: number;
+      };
+    };
     _query: Record<string, string>;
     _params: { clientId: string };
   }) => Promise<unknown>;
 
   const makeEvent = (
-    principal: { kind: string; user: ReturnType<typeof mockUser>; dashboardUserId: number },
+    principal: {
+      kind: string;
+      user: ReturnType<typeof mockUser>;
+      dashboardUserId: number;
+    },
     query: Record<string, string>,
     params: { clientId: string }
   ) =>
-    ({ context: { principal }, _query: query, _params: params }) as Parameters<Handler>[0];
+    ({
+      context: { principal },
+      _query: query,
+      _params: params,
+    }) as Parameters<Handler>[0];
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('requirePermission', vi.fn(async () => {}));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
-    vi.stubGlobal('getRouterParam', vi.fn((event: { _params: Record<string, string> }, name: string) => event._params[name]));
-    vi.stubGlobal('getValidatedQuery', vi.fn(async (event: { _query: Record<string, string> }) => event._query));
-    vi.stubGlobal('validateZod', vi.fn(() => vi.fn(async (data: unknown) => data)));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'requirePermission',
+      vi.fn(async () => {})
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
+    vi.stubGlobal(
+      'getRouterParam',
+      vi.fn(
+        (event: { _params: Record<string, string> }, name: string) =>
+          event._params[name]
+      )
+    );
+    vi.stubGlobal(
+      'getValidatedQuery',
+      vi.fn(async (event: { _query: Record<string, string> }) => event._query)
+    );
+    vi.stubGlobal(
+      'validateZod',
+      vi.fn(() => vi.fn(async (data: unknown) => data))
+    );
   });
 
   beforeEach(() => {
@@ -60,9 +95,24 @@ describe('dashboard/usage.get', () => {
           const bucketMs = 5 * 60 * 1000;
           const base = Math.floor(Date.now() / bucketMs) * bucketMs;
           return [
-            { clientId: 1, rxBytes: 100, txBytes: 200, ts: new Date(base - 4 * 60 * 1000) },
-            { clientId: 1, rxBytes: 150, txBytes: 250, ts: new Date(base - 3 * 60 * 1000) },
-            { clientId: 1, rxBytes: 200, txBytes: 300, ts: new Date(base - bucketMs - 4 * 60 * 1000) },
+            {
+              clientId: 1,
+              rxBytes: 100,
+              txBytes: 200,
+              ts: new Date(base - 4 * 60 * 1000),
+            },
+            {
+              clientId: 1,
+              rxBytes: 150,
+              txBytes: 250,
+              ts: new Date(base - 3 * 60 * 1000),
+            },
+            {
+              clientId: 1,
+              rxBytes: 200,
+              txBytes: 300,
+              ts: new Date(base - bucketMs - 4 * 60 * 1000),
+            },
           ];
         }),
       },
@@ -70,7 +120,8 @@ describe('dashboard/usage.get', () => {
   });
 
   it('returns correctly bucketed data for 24h range', async () => {
-    const usageHandler = (await import('./usage.get')).default as Handler;
+    const usageHandler = (await import('./usage.get'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(1, 2), dashboardUserId: 1 },
       { range: '24h' },
@@ -91,7 +142,8 @@ describe('dashboard/usage.get', () => {
   });
 
   it('returns 403 for client not owned by session user', async () => {
-    const usageHandler = (await import('./usage.get')).default as Handler;
+    const usageHandler = (await import('./usage.get'))
+      .default as unknown as Handler;
     const event = makeEvent(
       { kind: 'user', user: mockUser(2, 2), dashboardUserId: 2 },
       { range: '24h' },

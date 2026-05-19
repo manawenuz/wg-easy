@@ -21,12 +21,18 @@ describe('session.get', () => {
   }) => Promise<unknown>;
 
   beforeAll(() => {
-    vi.stubGlobal('defineEventHandler', vi.fn((fn: unknown) => fn));
-    vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
-      const err = new Error(opts.statusMessage);
-      (err as Error & { statusCode: number }).statusCode = opts.statusCode;
-      throw err;
-    }));
+    vi.stubGlobal(
+      'defineEventHandler',
+      vi.fn((fn: unknown) => fn)
+    );
+    vi.stubGlobal(
+      'createError',
+      vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+        const err = new Error(opts.statusMessage);
+        (err as Error & { statusCode: number }).statusCode = opts.statusCode;
+        throw err;
+      })
+    );
   });
 
   beforeEach(() => {
@@ -35,13 +41,17 @@ describe('session.get', () => {
 
   it('returns CLIENT role for user principal even if underlying role is ADMIN', async () => {
     const { resolvePrincipal } = await import('../utils/principal');
-    vi.stubGlobal('resolvePrincipal', vi.fn(async () => ({
-      kind: 'user',
-      user: mockUser(1, roles.ADMIN),
-      dashboardUserId: 1,
-    })));
+    vi.stubGlobal(
+      'resolvePrincipal',
+      vi.fn(async () => ({
+        kind: 'user',
+        user: mockUser(1, roles.ADMIN),
+        dashboardUserId: 1,
+      }))
+    );
 
-    const sessionHandler = (await import('./session.get')).default as Handler;
+    const sessionHandler = (await import('./session.get'))
+      .default as unknown as Handler;
     const result = await sessionHandler({ context: {} });
 
     expect(result).toMatchObject({
@@ -53,12 +63,16 @@ describe('session.get', () => {
 
   it('returns original role for admin principal', async () => {
     const { resolvePrincipal } = await import('../utils/principal');
-    vi.stubGlobal('resolvePrincipal', vi.fn(async () => ({
-      kind: 'admin',
-      user: mockUser(1, roles.ADMIN),
-    })));
+    vi.stubGlobal(
+      'resolvePrincipal',
+      vi.fn(async () => ({
+        kind: 'admin',
+        user: mockUser(1, roles.ADMIN),
+      }))
+    );
 
-    const sessionHandler = (await import('./session.get')).default as Handler;
+    const sessionHandler = (await import('./session.get'))
+      .default as unknown as Handler;
     const result = await sessionHandler({ context: {} });
 
     expect(result).toMatchObject({
@@ -70,9 +84,15 @@ describe('session.get', () => {
 
   it('returns 401 when not authenticated', async () => {
     const { resolvePrincipal } = await import('../utils/principal');
-    vi.stubGlobal('resolvePrincipal', vi.fn(async () => null));
+    vi.stubGlobal(
+      'resolvePrincipal',
+      vi.fn(async () => null)
+    );
 
-    const sessionHandler = (await import('./session.get')).default as Handler;
-    await expect(sessionHandler({ context: {} })).rejects.toThrow('Not authenticated');
+    const sessionHandler = (await import('./session.get'))
+      .default as unknown as Handler;
+    await expect(sessionHandler({ context: {} })).rejects.toThrow(
+      'Not authenticated'
+    );
   });
 });

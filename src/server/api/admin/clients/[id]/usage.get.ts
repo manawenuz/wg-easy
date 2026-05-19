@@ -5,8 +5,6 @@ const UsageRangeSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'client:read');
-
   const id = Number(getRouterParam(event, 'id'));
 
   if (Number.isNaN(id)) {
@@ -23,6 +21,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Client not found',
     });
   }
+  await requireClientPermission(event, 'client:read', client);
 
   const { range } = await getValidatedQuery(
     event,

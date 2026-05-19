@@ -2,8 +2,6 @@ import { logAction } from '../../../../utils/audit';
 import { clearSpeedLimit } from '../../../../services/speedLimitService';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'client:write');
-
   const id = Number(getRouterParam(event, 'id'));
   if (!id || Number.isNaN(id)) {
     throw createError({
@@ -19,6 +17,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Client not found',
     });
   }
+  await requireClientPermission(event, 'client:write', client);
 
   await clearSpeedLimit(id);
 

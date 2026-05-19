@@ -1,6 +1,5 @@
-import type { VpnEngine } from '../engines/types';
+import type { Client, VpnEngine } from '../engines/types';
 import type { InterfaceType } from '#db/repositories/interface/types';
-import type { ClientType } from '#db/repositories/client/types';
 
 /**
  * Attempts syncInterface inline. On failure, enqueues a pending mutation
@@ -9,14 +8,19 @@ import type { ClientType } from '#db/repositories/client/types';
 export async function syncOrEnqueue(
   engine: VpnEngine,
   iface: InterfaceType,
-  clients: ClientType[],
+  clients: Client[],
   clientId?: number
 ): Promise<{ queued: boolean }> {
   try {
     await engine.syncInterface(iface, clients);
     return { queued: false };
   } catch {
-    await Database.pendingMutations.enqueue(iface.name, 'syncInterface', {}, clientId);
+    await Database.pendingMutations.enqueue(
+      iface.name,
+      'syncInterface',
+      {},
+      clientId
+    );
     return { queued: true };
   }
 }
