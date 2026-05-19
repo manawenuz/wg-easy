@@ -41,6 +41,15 @@ export const WG_ENV = {
   WG_EXECUTABLE: await detectAwg(),
 };
 
+export const WG_BUILD = {
+  CHANNEL: process.env.WG_BUILD_CHANNEL || 'local',
+  REVISION: process.env.WG_BUILD_REVISION || '',
+  IMAGE_REPOSITORY:
+    process.env.WG_IMAGE_REPOSITORY || 'ghcr.io/manawenuz/wg-easy-fork',
+  UPDATE_REPO: process.env.WG_UPDATE_REPO || 'manawenuz/wg-easy',
+  UPDATE_BRANCH: process.env.WG_UPDATE_BRANCH || 'master',
+};
+
 function readSshKey(): string | undefined {
   if (process.env.MIKROTIK_DEFAULT_SSH_KEY) {
     return process.env.MIKROTIK_DEFAULT_SSH_KEY;
@@ -49,7 +58,10 @@ function readSshKey(): string | undefined {
     try {
       return readFileSync(process.env.MIKROTIK_DEFAULT_SSH_KEY_FILE, 'utf8');
     } catch (err) {
-      console.warn('[config] Failed to read MIKROTIK_DEFAULT_SSH_KEY_FILE:', (err as Error).message);
+      console.warn(
+        '[config] Failed to read MIKROTIK_DEFAULT_SSH_KEY_FILE:',
+        (err as Error).message
+      );
     }
   }
   return undefined;
@@ -59,7 +71,9 @@ export const MIKROTIK_DEFAULT_ENV = {
   ENABLED: !!process.env.MIKROTIK_DEFAULT_HOST,
   NAME: process.env.MIKROTIK_DEFAULT_NAME || 'mikrotik-default',
   HOST: process.env.MIKROTIK_DEFAULT_HOST,
-  TRANSPORT: (process.env.MIKROTIK_DEFAULT_TRANSPORT || 'ssh') as 'ssh' | 'routeros-api',
+  TRANSPORT: (process.env.MIKROTIK_DEFAULT_TRANSPORT || 'ssh') as
+    | 'ssh'
+    | 'routeros-api',
   PORT: process.env.MIKROTIK_DEFAULT_PORT
     ? Number.parseInt(process.env.MIKROTIK_DEFAULT_PORT, 10)
     : undefined,

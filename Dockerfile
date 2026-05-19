@@ -39,6 +39,12 @@ RUN npm install --no-save --omit=dev libsql
 FROM docker.io/library/node:krypton-alpine
 WORKDIR /app
 
+ARG WG_BUILD_CHANNEL=local
+ARG WG_BUILD_REVISION=
+ARG WG_IMAGE_REPOSITORY=ghcr.io/manawenuz/wg-easy-fork
+ARG WG_UPDATE_REPO=manawenuz/wg-easy
+ARG WG_UPDATE_BRANCH=master
+
 HEALTHCHECK --interval=1m --timeout=5s --retries=3 CMD /usr/local/bin/cli healthcheck
 
 # Copy build
@@ -96,9 +102,14 @@ ENV HOST=0.0.0.0
 ENV INSECURE=false
 ENV INIT_ENABLED=false
 ENV DISABLE_IPV6=false
+ENV WG_BUILD_CHANNEL=${WG_BUILD_CHANNEL}
+ENV WG_BUILD_REVISION=${WG_BUILD_REVISION}
+ENV WG_IMAGE_REPOSITORY=${WG_IMAGE_REPOSITORY}
+ENV WG_UPDATE_REPO=${WG_UPDATE_REPO}
+ENV WG_UPDATE_BRANCH=${WG_UPDATE_BRANCH}
 # Note: Userspace implementation env vars should be set at runtime, not baked into image
 
-LABEL org.opencontainers.image.source=https://github.com/wg-easy/wg-easy
+LABEL org.opencontainers.image.source=https://github.com/manawenuz/wg-easy
 
 # Run Web UI
 CMD ["/usr/bin/dumb-init", "node", "server/index.mjs"]

@@ -36,6 +36,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compute build metadata
+        shell: bash
+        run: |
+          echo "WG_BUILD_REVISION=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+            echo "WG_BUILD_CHANNEL=edge" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "WG_BUILD_CHANNEL=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          else
+            echo "WG_BUILD_CHANNEL=manual" >> "$GITHUB_ENV"
+          fi
+
       - name: Compute platform pair
         run: echo "PLATFORM_PAIR=${{ matrix.arch.platform }}" | tr '/' '-' >> $GITHUB_ENV
 
@@ -73,6 +85,12 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.arch.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            WG_BUILD_CHANNEL=${{ env.WG_BUILD_CHANNEL }}
+            WG_BUILD_REVISION=${{ env.WG_BUILD_REVISION }}
+            WG_IMAGE_REPOSITORY=ghcr.io/${{ github.repository_owner }}/wg-easy-fork
+            WG_UPDATE_REPO=${{ github.repository }}
+            WG_UPDATE_BRANCH=master
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/wg-easy-fork,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
