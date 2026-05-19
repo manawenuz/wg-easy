@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate as drizzleMigrate } from 'drizzle-orm/libsql/migrator';
 import { createClient } from '@libsql/client';
-import debug from 'debug';
+import { createDebug } from 'obug';
 import { eq } from 'drizzle-orm';
 import { roles } from '#shared/utils/permissions';
 import { encrypt } from '../utils/crypto';
@@ -28,7 +28,7 @@ import { WgObfuscatorConfigService } from './repositories/wgObfuscatorConfig/ser
 import { PendingMutationService } from './repositories/pendingMutation/service';
 import { TrafficGroupService } from './repositories/trafficGroup/service';
 
-const DB_DEBUG = debug('Database');
+const DB_DEBUG = createDebug('Database');
 
 const client = createClient({ url: process.env.DATABASE_URL || 'file:/etc/wireguard/wg-easy.db' });
 const db = drizzle({ client, schema });

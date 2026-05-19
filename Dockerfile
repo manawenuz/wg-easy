@@ -16,7 +16,7 @@ RUN npm install --global corepack@latest
 RUN corepack enable pnpm
 
 # Copy Web UI
-COPY src/package.json src/pnpm-lock.yaml ./
+COPY src/package.json src/pnpm-lock.yaml src/pnpm-workspace.yaml ./
 RUN pnpm install
 
 # Build UI
@@ -90,7 +90,7 @@ RUN update-alternatives --install /usr/sbin/iptables iptables /usr/sbin/iptables
 RUN update-alternatives --install /usr/sbin/ip6tables ip6tables /usr/sbin/ip6tables-nft 10 --slave /usr/sbin/ip6tables-restore ip6tables-restore /usr/sbin/ip6tables-nft-restore --slave /usr/sbin/ip6tables-save ip6tables-save /usr/sbin/ip6tables-nft-save
 
 # Set Environment
-ENV DEBUG=Server,WireGuard,Database,CMD
+ENV DEBUG=Server,WireGuard,Database,CMD,Firewall
 ENV PORT=51821
 ENV HOST=0.0.0.0
 ENV INSECURE=false

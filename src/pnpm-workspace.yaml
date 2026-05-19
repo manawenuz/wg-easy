@@ -1,2 +1,10 @@
 patchedDependencies:
   node-routeros@1.6.9: patches/node-routeros@1.6.9.patch
+allowBuilds:
+  '@parcel/watcher': false
+  argon2: false
+  cpu-features: false
+  esbuild: false
+  ssh2: false
+  unrs-resolver: false
+  vue-demi: false
